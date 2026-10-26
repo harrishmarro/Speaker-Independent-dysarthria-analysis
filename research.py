@@ -120,7 +120,7 @@ def main() -> None:
     )
     metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
     duration = time.monotonic() - started
-    status = "smoke_only" if arguments.mode == "smoke" else "needs_confirmation"
+    status = "smoke_only" if arguments.mode == "smoke" else "candidate_result"
     append_registry(
         {
             "experiment_id": experiment_id,

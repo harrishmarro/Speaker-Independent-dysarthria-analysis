@@ -100,10 +100,10 @@ labels are locked.
 python research.py --mode smoke
 ```
 
-The scheduled GitHub workflow invokes the controller every five hours. With the repository's
-synthetic manifest, a run validates the harness only and is recorded as `smoke_only`. It is
-never promoted to a research finding. Full experiments require a licensed local dataset and
-a separately configured GPU runner.
+The scheduled GitHub workflow invokes the controller every five hours on a self-hosted runner
+labelled `dysarthria-gpu`. It requires a private licensed dataset manifest and either CUDA or
+Apple Metal acceleration. See `docs/local-gpu-runner.md`. The synthetic manifest is accepted
+only for manual smoke validation and is never promoted to a research finding.
 
 ## Evaluation rules
 

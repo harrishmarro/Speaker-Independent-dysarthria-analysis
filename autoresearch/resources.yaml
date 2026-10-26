@@ -9,3 +9,9 @@ confirmation:
 network_during_experiment: false
 dataset_mount: read_only
 artifact_directory: artifacts
+runner_labels:
+  - self-hosted
+  - dysarthria-gpu
+supported_accelerators:
+  - cuda
+  - mps

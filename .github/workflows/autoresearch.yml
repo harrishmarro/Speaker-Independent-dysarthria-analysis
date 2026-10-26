@@ -9,6 +9,7 @@ on:
       - "evaluate.py"
       - "security.py"
       - "research.py"
+      - "verify_runner.py"
       - "autoresearch/**"
       - ".github/workflows/autoresearch.yml"
   schedule:
@@ -24,11 +25,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  smoke-cycle:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  gpu-experiment:
+    runs-on: [self-hosted, dysarthria-gpu]
+    timeout-minutes: 330
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          clean: true
       - name: Check five-hour eligibility
         id: schedule
         shell: bash
@@ -45,7 +48,10 @@ jobs:
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         if: steps.schedule.outputs.due == 'true'
       - if: steps.schedule.outputs.due == 'true'
-        run: uv sync --extra dev --locked
+        run: uv sync --extra dev --extra model --locked
+      - name: Verify private manifest and local accelerator
+        if: steps.schedule.outputs.due == 'true'
+        run: uv run python verify_runner.py --manifest "$DYSARTHRIA_MANIFEST"
       - if: steps.schedule.outputs.due == 'true'
         run: uv run python security.py train.py
       - if: steps.schedule.outputs.due == 'true'
@@ -54,7 +60,7 @@ jobs:
         run: uv run pytest
       - name: Run controlled research harness
         if: steps.schedule.outputs.due == 'true'
-        run: uv run python research.py --mode smoke
+        run: uv run python research.py --mode experiment --manifest "$DYSARTHRIA_MANIFEST"
       - name: Mark completed cycle
         if: steps.schedule.outputs.due == 'true'
         run: python scheduler.py mark
