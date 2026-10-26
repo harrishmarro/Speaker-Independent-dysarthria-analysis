@@ -305,6 +305,13 @@ Check that the Mac is awake, the Actions runner service is running, the label is
 `dysarthria-gpu`, and the runner belongs to this repository. Scheduled jobs remain queued until
 the runner reconnects.
 
+Turning the Mac off, losing power, or sleeping in a way that stops the runner terminates the
+active job. GitHub does not migrate that process. A later run starts from the beginning unless
+the training implementation has saved checkpoints. For unattended local runs, use power,
+supported clamshell mode, and macOS settings that prevent sleep while connected to power. A
+temporary `caffeinate -dimsu` session can keep the Mac awake, but it cannot keep a powered-off
+machine running. Use an always-on or cloud GPU when uninterrupted operation is required.
+
 ### No accelerator is detected
 
 Run `verify_runner.py` locally. Confirm Apple Silicon plus a PyTorch MPS build, or use a CUDA

@@ -60,3 +60,29 @@ supported accelerator are not suitable for the scheduled WavLM research workflow
 
 The Mac must be awake and online when a cycle becomes due. GitHub will queue the job while
 the runner is offline, but the experiment cannot run until the runner reconnects.
+
+## Sleep, lid closure, and shutdown behavior
+
+The runner is a process on the Mac. If the Mac is shut down, loses power, or sleeps in a way
+that stops the runner service, the active GitHub Actions job stops. GitHub does not migrate
+that running process to another machine. When the runner reconnects, a queued scheduled job
+may start again from the beginning; training checkpoints are required if an experiment must
+resume rather than restart.
+
+For unattended runs, connect the Mac to power and configure macOS to prevent sleep while it
+is connected to the charger. A lid-closed run requires supported clamshell operation, power,
+and an external display or input device. Test the runner with a short manual workflow before
+using a long experiment.
+
+For a temporary local keep-awake period, run this in a separate Terminal session:
+
+```bash
+caffeinate -dimsu
+```
+
+Stop `caffeinate` after the experiment or close the Terminal session. This cannot keep a
+powered-off Mac running.
+
+If the Mac will be unavailable regularly, use a dedicated always-on machine or a cloud GPU
+runner instead. A self-hosted laptop runner cannot provide uninterrupted five-hour research
+cycles while the laptop is off.
