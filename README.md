@@ -40,6 +40,12 @@ validated severity measure.
 
 ## Repository contents
 
+- `program.md` — human-maintained instructions for the autonomous research loop
+- `prepare.py` — locked data-validation and speaker-split entry point
+- `train.py` — the only model experiment file an autonomous researcher may modify
+- `evaluate.py` — locked evaluation entry point
+- `research.py` — controlled experiment runner and append-only registry writer
+- `security.py` — static policy gate applied before candidate code executes
 - `src/dysarthria/manifest.py` — validates dataset manifests and creates deterministic,
   speaker-disjoint splits
 - `src/dysarthria/model.py` — WavLM and Mixture-of-Experts architecture
@@ -82,6 +88,22 @@ Model training dependencies are optional because WavLM downloads are large:
 ```bash
 python -m pip install -e ".[model]"
 ```
+
+## Secure autoresearch loop
+
+The design adapts the small, controlled experiment loop from `karpathy/autoresearch` to
+sensitive speech research. The research agent may change `train.py` and declared research
+configuration only. Dataset splits, evaluation, privacy rules, security policy, and test
+labels are locked.
+
+```bash
+python research.py --mode smoke
+```
+
+The scheduled GitHub workflow invokes the controller every five hours. With the repository's
+synthetic manifest, a run validates the harness only and is recorded as `smoke_only`. It is
+never promoted to a research finding. Full experiments require a licensed local dataset and
+a separately configured GPU runner.
 
 ## Evaluation rules
 

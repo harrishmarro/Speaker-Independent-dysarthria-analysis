@@ -1,0 +1,11 @@
+version: 1
+schedule_hours: 5
+screening:
+  wall_clock_seconds: 1800
+  max_memory_mb: 16384
+confirmation:
+  wall_clock_seconds: 18000
+  max_memory_mb: 24576
+network_during_experiment: false
+dataset_mount: read_only
+artifact_directory: artifacts

@@ -1,0 +1,15 @@
+version: 1
+iteration_split: validation
+held_out_test_access: human_review_only
+primary_metric: balanced_accuracy
+tie_breakers:
+  - f1
+  - recall
+  - accuracy
+hard_gates:
+  speaker_overlap: 0
+  security_findings: 0
+  invalid_metrics: 0
+  max_runtime_seconds: 18000
+  max_peak_memory_mb: 24576
+confirmation_seeds: [42, 43, 44, 45, 46]

@@ -16,7 +16,7 @@ def binary_classification_metrics(
     false_positive = sum(t == 0 and p == 1 for t, p in zip(targets, predictions, strict=True))
     false_negative = sum(t == 1 and p == 0 for t, p in zip(targets, predictions, strict=True))
 
-    def divide(numerator: int, denominator: int) -> float:
+    def divide(numerator: float, denominator: float) -> float:
         return numerator / denominator if denominator else 0.0
 
     precision = divide(true_positive, true_positive + false_positive)

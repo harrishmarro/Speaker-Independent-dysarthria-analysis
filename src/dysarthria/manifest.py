@@ -65,7 +65,8 @@ def assign_speaker_splits(
         speakers_by_label[label].append(speaker)
 
     split_by_speaker: dict[str, str] = {}
-    rng = random.Random(seed)
+    # This deterministic research split does not use randomness for a security decision.
+    rng = random.Random(seed)  # nosec B311
     for label in sorted(speakers_by_label):
         speakers = sorted(speakers_by_label[label])
         rng.shuffle(speakers)

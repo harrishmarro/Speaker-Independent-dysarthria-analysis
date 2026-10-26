@@ -17,6 +17,7 @@ class WavLMMixtureOfExperts(nn.Module):
         self,
         model_name: str = "microsoft/wavlm-base-plus",
         *,
+        revision: str,
         num_experts: int = 4,
         expert_dim: int = 256,
         dropout: float = 0.1,
@@ -25,7 +26,13 @@ class WavLMMixtureOfExperts(nn.Module):
         super().__init__()
         if num_experts < 2:
             raise ValueError("num_experts must be at least 2")
-        self.encoder = WavLMModel.from_pretrained(model_name)
+        self.encoder = WavLMModel.from_pretrained(
+            model_name,
+            revision=revision,
+            local_files_only=True,
+            trust_remote_code=False,
+            use_safetensors=True,
+        )
         hidden = self.encoder.config.hidden_size
         if freeze_feature_encoder:
             self.encoder.freeze_feature_encoder()

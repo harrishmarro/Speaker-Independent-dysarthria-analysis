@@ -10,6 +10,8 @@ data:
 
 model:
   encoder: microsoft/wavlm-base-plus
+  # Replace with a reviewed immutable Hugging Face commit before model execution.
+  revision: REQUIRED_IMMUTABLE_COMMIT_SHA
   num_experts: 4
   expert_dim: 256
   dropout: 0.10

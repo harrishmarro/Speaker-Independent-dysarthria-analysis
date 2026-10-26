@@ -1,0 +1,39 @@
+version: 1
+candidate_file: train.py
+agent_writable_paths:
+  - train.py
+  - configs/research/
+  - experiments/autonomous/
+locked_paths:
+  - prepare.py
+  - evaluate.py
+  - security.py
+  - locked/
+  - data/manifests/
+  - data/splits/
+  - tests/security/
+  - tests/leakage/
+candidate_forbidden_imports:
+  - ctypes
+  - ftplib
+  - http
+  - importlib
+  - multiprocessing
+  - pickle
+  - requests
+  - shutil
+  - socket
+  - subprocess
+  - urllib
+candidate_forbidden_calls:
+  - __import__
+  - compile
+  - eval
+  - exec
+  - input
+  - open
+  - os.popen
+  - os.system
+  - pathlib.Path.chmod
+  - pathlib.Path.unlink
+  - torch.load
