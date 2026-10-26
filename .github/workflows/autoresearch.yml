@@ -1,6 +1,16 @@
 name: Secure autoresearch cycle
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "train.py"
+      - "prepare.py"
+      - "evaluate.py"
+      - "security.py"
+      - "research.py"
+      - "autoresearch/**"
+      - ".github/workflows/autoresearch.yml"
   schedule:
     - cron: "23 */5 * * *"
   workflow_dispatch:
