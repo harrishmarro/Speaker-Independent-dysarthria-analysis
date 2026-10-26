@@ -1,0 +1,13 @@
+audio_path,speaker_id,label,severity,transcript
+data/audio/control_01_a.wav,C01,control,normal,the quick brown fox
+data/audio/control_02_a.wav,C02,control,normal,please open the window
+data/audio/control_03_a.wav,C03,control,normal,today is a sunny day
+data/audio/control_04_a.wav,C04,control,normal,we are testing this sentence
+data/audio/control_05_a.wav,C05,control,normal,the meeting starts at noon
+data/audio/control_06_a.wav,C06,control,normal,turn on the reading light
+data/audio/dysarthria_01_a.wav,D01,dysarthria,mild,the quick brown fox
+data/audio/dysarthria_02_a.wav,D02,dysarthria,moderate,please open the window
+data/audio/dysarthria_03_a.wav,D03,dysarthria,severe,today is a sunny day
+data/audio/dysarthria_04_a.wav,D04,dysarthria,mild,we are testing this sentence
+data/audio/dysarthria_05_a.wav,D05,dysarthria,moderate,the meeting starts at noon
+data/audio/dysarthria_06_a.wav,D06,dysarthria,severe,turn on the reading light

@@ -1,0 +1,28 @@
+experiment:
+  seed: 42
+  task: binary_dysarthria_detection
+
+data:
+  sample_rate: 16000
+  split_unit: speaker
+  train_ratio: 0.70
+  validation_ratio: 0.15
+
+model:
+  encoder: microsoft/wavlm-base-plus
+  num_experts: 4
+  expert_dim: 256
+  dropout: 0.10
+  freeze_feature_encoder: true
+
+evaluation:
+  primary_metric: balanced_accuracy
+  report:
+    - accuracy
+    - balanced_accuracy
+    - precision
+    - recall
+    - f1
+    - roc_auc
+    - confusion_matrix
+  repeated_seeds: [42, 43, 44, 45, 46]

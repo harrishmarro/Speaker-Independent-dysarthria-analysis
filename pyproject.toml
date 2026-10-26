@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dysarthria-speech-analytics"
+version = "0.1.0"
+description = "Speaker-independent dysarthria research utilities and WavLM-MoE prototype"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "Harish P. S."}]
+dependencies = []
+
+[project.optional-dependencies]
+model = [
+  "numpy>=2.0,<3",
+  "soundfile>=0.13,<1",
+  "torch>=2.5,<3",
+  "transformers>=4.46,<5",
+]
+dev = [
+  "pytest>=8.3,<9",
+  "ruff>=0.8,<1",
+]
+
+[project.scripts]
+dysarthria-data = "dysarthria.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
