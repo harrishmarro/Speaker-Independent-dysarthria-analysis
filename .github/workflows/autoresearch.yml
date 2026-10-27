@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: dysarthria-autoresearch
@@ -70,25 +71,58 @@ jobs:
         run: uv run ruff check .
       - if: steps.schedule.outputs.due == 'true'
         run: uv run pytest
+      - name: Prepare bounded candidate
+        if: steps.schedule.outputs.due == 'true'
+        id: candidate
+        run: uv run python autoresearch/decide.py prepare >> "$GITHUB_OUTPUT"
+      - name: Validate proposed candidate
+        if: steps.candidate.outputs.candidate_available == 'true'
+        run: |
+          uv run python security.py train.py
+          uv run ruff check .
+          uv run pytest
       - name: Run controlled research harness
-        if: steps.schedule.outputs.due == 'true'
-        run: uv run python research.py --mode experiment --manifest "$DYSARTHRIA_MANIFEST"
-      - name: Propose next bounded candidate
-        if: steps.schedule.outputs.due == 'true'
-        run: uv run python autoresearch/propose.py
+        if: steps.candidate.outputs.candidate_available == 'true'
+        shell: bash
+        run: |
+          if ! uv run python research.py --mode experiment --manifest "$DYSARTHRIA_MANIFEST" > run.log 2>&1; then
+            tail -n 50 run.log
+            exit 1
+          fi
+          tail -n 8 run.log
+      - name: Assess candidate against accepted baseline
+        if: steps.candidate.outputs.candidate_available == 'true'
+        id: decision
+        run: uv run python autoresearch/decide.py assess >> "$GITHUB_OUTPUT"
       - name: Mark completed cycle
         if: steps.schedule.outputs.due == 'true'
         run: uv run --python 3.14 python scheduler.py mark
-      - name: Commit new experiment record
-        if: steps.schedule.outputs.due == 'true'
+      - name: Record rejected result and restore baseline
+        if: steps.candidate.outputs.candidate_available == 'true' && steps.decision.outputs.improved == 'false'
         shell: bash
         run: |
-          if git diff --quiet -- experiments/registry.tsv experiments/schedule_state.json configs/research/active.json; then
-            echo "No new experiment or scheduler state to record."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/registry.tsv experiments/schedule_state.json configs/research/active.json
-          git commit -m "Record scheduled research cycle"
+          git add experiments/registry.tsv experiments/search_state.json experiments/schedule_state.json
+          git commit -m "research: record non-improving candidate"
           git push
+      - name: Propose improved candidate for review
+        if: steps.candidate.outputs.candidate_available == 'true' && steps.decision.outputs.improved == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/search_state.json experiments/schedule_state.json
+          git commit -m "research: record candidate decision state"
+          git push
+          branch="research/${{ steps.decision.outputs.experiment_id }}"
+          git switch -c "$branch"
+          git add configs/research/active.json configs/research/baseline.json experiments/registry.tsv
+          git commit -m "research: propose ${{ steps.decision.outputs.candidate_name }}"
+          git push -u origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Research: review ${{ steps.decision.outputs.candidate_name }}" \
+            --body "Validation balanced accuracy improved over the accepted baseline. Review the experiment record, speaker-level evidence, and code before merging. No held-out test result was used for selection."
+          gh pr edit "$branch" --add-reviewer harrishmarro

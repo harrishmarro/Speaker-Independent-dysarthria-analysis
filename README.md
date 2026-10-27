@@ -105,11 +105,12 @@ labelled `dysarthria-gpu`. It requires a private licensed dataset manifest and e
 Apple Metal acceleration. See `docs/local-gpu-runner.md`. The synthetic manifest is accepted
 only for manual smoke validation and is never promoted to a research finding.
 
-The current schedule checks every ten minutes. After a completed experiment, the controller
-can select the next candidate from a finite, reviewed set of spectral-weight and speaker-
-aggregation variants in `autoresearch/propose.py`. It stops when a candidate reaches the
-confirmation threshold or the set is exhausted. This is bounded automated search, not an
-unrestricted code-writing agent. Each candidate has a distinct signature and registry entry.
+The current schedule checks every ten minutes. The controller tries one variant from a
+finite, reviewed set in `autoresearch/decide.py`, compares validation balanced accuracy
+with the accepted baseline, and records each outcome. Equal or worse variants restore the
+baseline configuration on `main`. A better variant opens a pull request for review before
+it can become the new baseline. The loop stops when the set is exhausted. This is bounded
+automated search; the runner does not yet write new Python model code.
 
 ## Evaluation rules
 
