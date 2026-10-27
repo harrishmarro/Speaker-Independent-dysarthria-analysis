@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic audio baseline for the autoresearch candidate surface."""
+"""Speaker-balanced, training-standardized acoustic baseline."""
 
 from __future__ import annotations
 
@@ -47,14 +47,31 @@ def main() -> None:
             dtype=np.float32,
         )
 
-    vectors = {row["audio_path"]: extract(row["audio_path"]) for row in rows}
-    by_label: dict[str, list[np.ndarray]] = defaultdict(list)
+    # A candidate must never inspect held-out test audio during iteration.
+    active_rows = [row for row in rows if row["split"] in {"train", "validation"}]
+    vectors = {row["audio_path"]: extract(row["audio_path"]) for row in active_rows}
+    by_speaker: dict[str, list[np.ndarray]] = defaultdict(list)
+    speaker_labels: dict[str, str] = {}
     for row in rows:
         if row["split"] == "train":
-            by_label[row["label"]].append(vectors[row["audio_path"]])
+            speaker = row["speaker_id"]
+            if speaker in speaker_labels and speaker_labels[speaker] != row["label"]:
+                raise ValueError(f"conflicting labels for training speaker {speaker}")
+            speaker_labels[speaker] = row["label"]
+            by_speaker[speaker].append(vectors[row["audio_path"]])
+    by_label: dict[str, list[np.ndarray]] = defaultdict(list)
+    for speaker, recordings in by_speaker.items():
+        by_label[speaker_labels[speaker]].append(np.mean(recordings, axis=0))
     if set(by_label) != {"control", "dysarthria"}:
         raise ValueError("training split must contain both labels")
-    centroids = {label: np.mean(values, axis=0) for label, values in by_label.items()}
+    training_vectors = np.stack([vector for values in by_label.values() for vector in values])
+    feature_mean = training_vectors.mean(axis=0)
+    feature_scale = training_vectors.std(axis=0)
+    feature_scale = np.where(feature_scale > 1e-6, feature_scale, 1.0)
+    centroids = {
+        label: np.mean([(vector - feature_mean) / feature_scale for vector in values], axis=0)
+        for label, values in by_label.items()
+    }
     speaker_rows: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in rows:
         if row["split"] == "validation":
@@ -63,17 +80,17 @@ def main() -> None:
     predictions = []
     for speaker_id, recordings in sorted(speaker_rows.items()):
         vector = np.mean([vectors[row["audio_path"]] for row in recordings], axis=0)
+        vector = (vector - feature_mean) / feature_scale
         distances = {
             label: float(np.linalg.norm(vector - center))
             for label, center in centroids.items()
         }
-        predicted = min(distances, key=distances.get)
         margin = distances["control"] - distances["dysarthria"]
         probability = float(1.0 / (1.0 + np.exp(-margin)))
         predictions.append({
             "speaker_id": speaker_id,
             "target": int(recordings[0]["label"] == "dysarthria"),
-            "prediction": int(predicted == "dysarthria"),
+            "prediction": int(margin > 0),
             "probability": probability,
         })
     write_predictions(predictions, arguments.output)

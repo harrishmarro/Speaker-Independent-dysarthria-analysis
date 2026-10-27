@@ -135,7 +135,7 @@ def main() -> None:
             "recall": f"{metrics['recall']:.6f}",
             "runtime_seconds": f"{duration:.3f}",
             "status": status,
-            "description": "majority-label harness baseline",
+            "description": "speaker-balanced standardized acoustic baseline",
         }
     )
     print(f"recorded {experiment_id} as {status}")
