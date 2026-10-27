@@ -114,6 +114,13 @@ baseline configuration on `main`. A better variant opens a pull request for revi
 it can become the new baseline. The loop stops when the set is exhausted. This is bounded
 automated search; the runner does not yet write new Python model code.
 
+`experiments/registry.tsv` records each run's source commit, model-code commit, candidate
+configuration hash, and configuration values. Older rows have no verifiable run commit;
+their model-code commit is backfilled from the exact `train.py` content hash.
+`experiments/Model_used.tsv` preserves accepted baselines when the search moves to a new
+approach. Only the best retained approach from a previous search remains available for
+comparison; rejected variants are kept as result rows, not active candidates.
+
 ## Evaluation rules
 
 1. Split by speaker before feature extraction or model fitting.

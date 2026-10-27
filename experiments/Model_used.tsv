@@ -1,0 +1,2 @@
+model_id	model_code_commit	reference_experiment	balanced_accuracy	f1	status	note
+spectral_equal	8302d8aa6d8fc34d5803d8ec399c305e40ce7479	EXP-20261027T030625Z-4b32b6	0.500000	0.000000	accepted_baseline	Best retained acoustic approach before speaker nearest-neighbor trials; tied with other spectral variants.

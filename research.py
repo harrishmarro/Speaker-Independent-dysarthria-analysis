@@ -8,6 +8,7 @@ import csv
 import hashlib
 import json
 import os
+import shutil
 
 # The trusted controller uses an allowlisted, shell-free runner.
 import subprocess  # nosec B404
@@ -24,6 +25,16 @@ ALLOWED_PROGRAMS = {"security.py", "prepare.py", "train.py", "evaluate.py"}
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def source_commit() -> str:
+    git = shutil.which("git")
+    if git is None:
+        return "unavailable"
+    result = subprocess.run(  # nosec B603
+        [git, "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True
+    )
+    return result.stdout.strip()
 
 
 def run(command: list[str], *, timeout: int) -> None:
@@ -53,15 +64,32 @@ def existing_signatures() -> set[str]:
 
 def append_registry(record: dict[str, str]) -> None:
     REGISTRY.parent.mkdir(parents=True, exist_ok=True)
-    exists = REGISTRY.exists()
+    existed = REGISTRY.exists()
+    if existed:
+        with REGISTRY.open(newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            previous_columns = list(reader.fieldnames or [])
+            previous_rows = list(reader)
+        columns = list(dict.fromkeys([*previous_columns, *record]))
+        if columns != previous_columns:
+            temporary = REGISTRY.with_suffix(".migration.tsv")
+            with temporary.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(
+                    handle, fieldnames=columns, delimiter="\t", lineterminator="\n"
+                )
+                writer.writeheader()
+                writer.writerows(previous_rows)
+            temporary.replace(REGISTRY)
+    else:
+        columns = list(record)
     with REGISTRY.open("a", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=list(record),
+            fieldnames=columns,
             delimiter="\t",
             lineterminator="\n",
         )
-        if not exists:
+        if not existed:
             writer.writeheader()
         writer.writerow(record)
 
@@ -138,6 +166,12 @@ def main() -> None:
             "runtime_seconds": f"{duration:.3f}",
             "status": status,
             "description": json.loads(ACTIVE_CANDIDATE.read_text())["candidate"],
+            "source_commit": source_commit(),
+            "model_code_commit": source_commit(),
+            "candidate_config_sha256": digest(ACTIVE_CANDIDATE),
+            "candidate_config": json.dumps(
+                json.loads(ACTIVE_CANDIDATE.read_text()), sort_keys=True, separators=(",", ":")
+            ),
         }
     )
     print(f"recorded {experiment_id} as {status}")

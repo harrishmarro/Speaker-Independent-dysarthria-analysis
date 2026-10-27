@@ -12,6 +12,7 @@ ACTIVE = ROOT / "configs/research/active.json"
 ACCEPTED = ROOT / "configs/research/baseline.json"
 STATE = ROOT / "experiments/search_state.json"
 REGISTRY = ROOT / "experiments/registry.tsv"
+MODEL_HISTORY = ROOT / "experiments/Model_used.tsv"
 CANDIDATES = (
     {"candidate": "speaker_knn_1", "spectral_weight": 1.0, "aggregation": "mean",
      "classifier": "speaker_knn", "neighbors": 1},
@@ -68,6 +69,18 @@ def main() -> None:
             "balanced_accuracy": float(latest["balanced_accuracy"]),
             "f1": float(latest["f1"]),
         })
+        with MODEL_HISTORY.open("a", encoding="utf-8") as handle:
+            handle.write(
+                "\t".join((
+                    name,
+                    latest.get("model_code_commit", "unavailable"),
+                    latest["experiment_id"],
+                    latest["balanced_accuracy"],
+                    latest["f1"],
+                    "proposed_for_review",
+                    "Candidate exceeded the accepted validation baseline; requires PR review.",
+                )) + "\n"
+            )
     else:
         write_json(ACTIVE, {
             key: value for key, value in baseline.items()

@@ -115,7 +115,7 @@ jobs:
           bash scripts/push_main_with_retry.sh
           branch="research/${{ steps.decision.outputs.experiment_id }}"
           git switch -c "$branch"
-          git add configs/research/active.json configs/research/baseline.json experiments/registry.tsv
+          git add configs/research/active.json configs/research/baseline.json experiments/registry.tsv experiments/Model_used.tsv
           git commit -m "research: propose ${{ steps.decision.outputs.candidate_name }}"
           git push -u origin "$branch"
           gh pr create --base main --head "$branch" \
