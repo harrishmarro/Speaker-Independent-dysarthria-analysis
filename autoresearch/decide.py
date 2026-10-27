@@ -13,9 +13,12 @@ ACCEPTED = ROOT / "configs/research/baseline.json"
 STATE = ROOT / "experiments/search_state.json"
 REGISTRY = ROOT / "experiments/registry.tsv"
 CANDIDATES = (
-    {"candidate": "spectral_stronger", "spectral_weight": 2.0, "aggregation": "mean"},
-    {"candidate": "spectral_weaker", "spectral_weight": 0.5, "aggregation": "mean"},
-    {"candidate": "spectral_robust", "spectral_weight": 1.0, "aggregation": "median"},
+    {"candidate": "speaker_knn_1", "spectral_weight": 1.0, "aggregation": "mean",
+     "classifier": "speaker_knn", "neighbors": 1},
+    {"candidate": "speaker_knn_3", "spectral_weight": 1.0, "aggregation": "mean",
+     "classifier": "speaker_knn", "neighbors": 3},
+    {"candidate": "speaker_knn_5", "spectral_weight": 1.0, "aggregation": "mean",
+     "classifier": "speaker_knn", "neighbors": 5},
 )
 
 
@@ -67,7 +70,8 @@ def main() -> None:
         })
     else:
         write_json(ACTIVE, {
-            key: baseline[key] for key in ("candidate", "spectral_weight", "aggregation")
+            key: value for key, value in baseline.items()
+            if key not in ("balanced_accuracy", "f1")
         })
     print(f"improved={'true' if improved else 'false'}")
     print(f"candidate_name={name}")

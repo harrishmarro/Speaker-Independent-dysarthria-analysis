@@ -106,7 +106,8 @@ Apple Metal acceleration. See `docs/local-gpu-runner.md`. The synthetic manifest
 only for manual smoke validation and is never promoted to a research finding.
 
 The schedule requests a cycle every ten minutes, and each completed candidate queues the next
-candidate through its search-state commit. The controller tries one variant from a
+candidate through its search-state commit. The current plan compares speaker-level nearest-
+neighbor classifiers with 1, 3, and 5 neighbors. The controller tries one variant from a
 finite, reviewed set in `autoresearch/decide.py`, compares validation balanced accuracy
 with the accepted baseline, and records each outcome. Equal or worse variants restore the
 baseline configuration on `main`. A better variant opens a pull request for review before

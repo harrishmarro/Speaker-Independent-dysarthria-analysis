@@ -28,6 +28,12 @@ def main() -> None:
         raise ValueError("unsupported spectral weight")
     if settings["aggregation"] not in ("mean", "median"):
         raise ValueError("unsupported aggregation")
+    classifier = settings.get("classifier", "centroid")
+    if classifier not in ("centroid", "speaker_knn"):
+        raise ValueError("unsupported classifier")
+    neighbors = settings.get("neighbors", 1)
+    if neighbors not in (1, 3, 5):
+        raise ValueError("unsupported neighbor count")
     aggregate = np.mean if settings["aggregation"] == "mean" else np.median
 
     def extract(path: str) -> np.ndarray:
@@ -97,6 +103,14 @@ def main() -> None:
         )
         for label, values in by_label.items()
     }
+    training_speakers = [
+        (
+            speaker,
+            speaker_labels[speaker],
+            ((aggregate(recordings, axis=0) - feature_mean) / feature_scale) * weights,
+        )
+        for speaker, recordings in sorted(by_speaker.items())
+    ]
     speaker_rows: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in rows:
         if row["split"] == "validation":
@@ -106,16 +120,26 @@ def main() -> None:
     for speaker_id, recordings in sorted(speaker_rows.items()):
         vector = aggregate([vectors[row["audio_path"]] for row in recordings], axis=0)
         vector = ((vector - feature_mean) / feature_scale) * weights
-        distances = {
-            label: float(np.linalg.norm(vector - center))
-            for label, center in centroids.items()
-        }
-        margin = distances["control"] - distances["dysarthria"]
-        probability = float(1.0 / (1.0 + np.exp(-margin)))
+        if classifier == "speaker_knn":
+            ranked = sorted(
+                (
+                    (float(np.linalg.norm(vector - training_vector)), speaker, label)
+                    for speaker, label, training_vector in training_speakers
+                )
+            )
+            closest = ranked[:neighbors]
+            probability = sum(label == "dysarthria" for _, _, label in closest) / len(closest)
+        else:
+            distances = {
+                label: float(np.linalg.norm(vector - center))
+                for label, center in centroids.items()
+            }
+            margin = distances["control"] - distances["dysarthria"]
+            probability = float(1.0 / (1.0 + np.exp(-margin)))
         predictions.append({
             "speaker_id": speaker_id,
             "target": int(recordings[0]["label"] == "dysarthria"),
-            "prediction": int(margin > 0),
+            "prediction": int(probability > 0.5),
             "probability": probability,
         })
     write_predictions(predictions, arguments.output)
