@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,6 +20,6 @@ jobs:
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
       - run: uv sync --extra dev --locked
       - run: uv run ruff check .
-      - run: uv run mypy src locked prepare.py evaluate.py research.py scheduler.py security.py verify_runner.py
+      - run: uv run mypy src locked prepare.py evaluate.py research.py scheduler.py security.py verify_runner.py scripts/pipeline_recovery.py
       - run: uv run pytest
       - run: uv run dysarthria-data validate data/sample_manifest.csv

@@ -19,5 +19,7 @@ human-review gates.
   deserialization, or direct arbitrary file access.
 - Model sources, revisions, licenses, and cryptographic hashes must be recorded before use.
 - Held-out test labels remain unavailable during autonomous iteration.
+- Pipeline recovery cannot modify workflows, locked evaluation, research approval gates, or
+  candidate training code automatically. It does not send Mac research or Security logs to a model.
 
 No model produced by this repository is approved for clinical or diagnostic use.
