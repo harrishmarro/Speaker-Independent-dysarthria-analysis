@@ -1,6 +1,6 @@
 # Local macOS GPU runner
 
-The five-hour model-research workflow uses a self-hosted GitHub Actions runner with the
+The ten-minute research schedule uses a self-hosted GitHub Actions runner with the
 custom label `dysarthria-gpu`. CI and security analysis continue to use isolated
 GitHub-hosted runners.
 
@@ -46,8 +46,8 @@ uv sync --extra dev --extra model --locked
 uv run python verify_runner.py --manifest "$DYSARTHRIA_MANIFEST"
 ```
 
-The check must report either `mps:Apple Metal` or a CUDA device. Intel Macs without a
-supported accelerator are not suitable for the scheduled WavLM research workflow.
+The check must report either `mps:Apple Metal` or a CUDA device. The current acoustic
+candidates use CPU; WavLM training has not been connected to this workflow.
 
 ## Public-repository precautions
 
@@ -84,5 +84,5 @@ Stop `caffeinate` after the experiment or close the Terminal session. This canno
 powered-off Mac running.
 
 If the Mac will be unavailable regularly, use a dedicated always-on machine or a cloud GPU
-runner instead. A self-hosted laptop runner cannot provide uninterrupted five-hour research
+runner instead. A self-hosted laptop runner cannot provide uninterrupted scheduled research
 cycles while the laptop is off.

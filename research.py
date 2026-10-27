@@ -20,6 +20,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 REGISTRY = ROOT / "experiments" / "registry.tsv"
 ACTIVE_CANDIDATE = ROOT / "configs" / "research" / "active.json"
+ACCEPTED_BASELINE = ROOT / "configs" / "research" / "baseline.json"
+CV_CODE = ROOT / "src" / "dysarthria" / "acoustic_cv.py"
 ALLOWED_PROGRAMS = {"security.py", "prepare.py", "train.py", "evaluate.py"}
 
 
@@ -103,8 +105,8 @@ def main() -> None:
 
     manifest = ROOT / arguments.manifest
     signature_input = ":".join(
-        [arguments.mode, str(arguments.seed), digest(ROOT / "train.py"),
-         digest(ACTIVE_CANDIDATE), digest(manifest)]
+        [arguments.mode, str(arguments.seed), digest(ROOT / "train.py"), digest(CV_CODE),
+         digest(ACTIVE_CANDIDATE), digest(ACCEPTED_BASELINE), digest(manifest)]
     )
     signature = hashlib.sha256(signature_input.encode()).hexdigest()[:16]
     if signature in existing_signatures():
@@ -117,6 +119,8 @@ def main() -> None:
     prepared = output / "prepared_manifest.csv"
     predictions = output / "predictions.jsonl"
     metrics_path = output / "metrics.json"
+    cv_metrics_path = output / "cv_metrics.json"
+    baseline_cv_metrics_path = output / "baseline_cv_metrics.json"
     started = time.monotonic()
 
     run([sys.executable, "security.py", "train.py"], timeout=60)
@@ -148,7 +152,18 @@ def main() -> None:
         ],
         timeout=60,
     )
+    for prediction_file, result_file in (
+        ("cv_predictions.jsonl", cv_metrics_path),
+        ("baseline_cv_predictions.jsonl", baseline_cv_metrics_path),
+    ):
+        run(
+            [sys.executable, "evaluate.py", "--predictions", str(output / prediction_file),
+             "--output", str(result_file)],
+            timeout=60,
+        )
     metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    cv_metrics = json.loads(cv_metrics_path.read_text(encoding="utf-8"))
+    baseline_cv_metrics = json.loads(baseline_cv_metrics_path.read_text(encoding="utf-8"))
     duration = time.monotonic() - started
     status = "smoke_only" if arguments.mode == "smoke" else "candidate_result"
     append_registry(
@@ -172,6 +187,15 @@ def main() -> None:
             "candidate_config": json.dumps(
                 json.loads(ACTIVE_CANDIDATE.read_text()), sort_keys=True, separators=(",", ":")
             ),
+            "cv_balanced_accuracy": f"{cv_metrics['balanced_accuracy']:.6f}",
+            "cv_f1": f"{cv_metrics['f1']:.6f}",
+            "baseline_cv_balanced_accuracy": f"{baseline_cv_metrics['balanced_accuracy']:.6f}",
+            "baseline_cv_f1": f"{baseline_cv_metrics['f1']:.6f}",
+            "cv_speakers": str(sum(
+                cv_metrics[key] for key in (
+                    "true_positive", "true_negative", "false_positive", "false_negative"
+                )
+            )),
         }
     )
     print(f"recorded {experiment_id} as {status}")

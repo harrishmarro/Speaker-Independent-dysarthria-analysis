@@ -11,6 +11,7 @@ on:
       - "research.py"
       - "verify_runner.py"
       - "autoresearch/**"
+      - "src/dysarthria/acoustic_cv.py"
       - "experiments/search_state.json"
       - ".github/workflows/autoresearch.yml"
   schedule:
@@ -21,6 +22,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 concurrency:
   group: dysarthria-autoresearch
@@ -71,6 +73,16 @@ jobs:
         if: steps.schedule.outputs.due == 'true'
         id: candidate
         run: uv run python autoresearch/decide.py prepare >> "$GITHUB_OUTPUT"
+      - name: Notify owner when research needs review
+        if: steps.candidate.outputs.review_required == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          uv run python scripts/notify_research.py \
+            '${{ steps.candidate.outputs.review_reason }}' \
+            '${{ steps.candidate.outputs.candidate_name }}'
+          echo 'Research is waiting for review of the next approach.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Scheduled checks remain active; an issue was assigned to the repository owner.' >> "$GITHUB_STEP_SUMMARY"
       - name: Validate proposed candidate
         if: steps.candidate.outputs.candidate_available == 'true'
         run: |

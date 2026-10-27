@@ -47,7 +47,7 @@ modify them:
 - `prepare.py` — manifest validation and speaker-disjoint splits
 - `evaluate.py` — prediction validation and locked metrics
 - `security.py` — candidate-code static policy gate
-- `scheduler.py` — five-hour eligibility state
+- `scheduler.py` — cycle timestamp utility
 - `verify_runner.py` — local accelerator and private-manifest checks
 - `locked/` — constrained candidate file access
 - `tests/security/`, `tests/leakage/`, `tests/privacy/`
@@ -173,8 +173,8 @@ uv sync --extra dev --extra model --locked
 uv run python verify_runner.py --manifest "$DYSARTHRIA_MANIFEST"
 ```
 
-The check must report either `mps:Apple Metal` or a CUDA accelerator. Intel Macs without a
-supported accelerator cannot run the scheduled WavLM workflow.
+The check must report either `mps:Apple Metal` or a CUDA accelerator. The current scheduled
+acoustic candidates run on CPU after the runner check; WavLM training is not implemented yet.
 
 The public repository intentionally does not run model experiments on pull requests. This
 prevents untrusted fork code from reaching the local machine. Keep branch protection enabled
@@ -210,14 +210,19 @@ Every experiment starts with one falsifiable hypothesis. Use this order:
 7. Run the controlled experiment with a fixed resource budget.
 8. Save configuration, dataset hash, split hash, candidate hash, environment, predictions,
    metrics, and resource use.
-9. Compare against the current retained candidate on validation speakers only.
+9. Compare against the retained baseline on validation speakers and leave-one-training-speaker-out
+   cross-validation. Refit feature scaling within every cross-validation fold.
 10. Keep, reject, or mark inconclusive; record the decision and reasoning.
 11. Confirm promising candidates across the declared seeds `[42, 43, 44, 45, 46]`.
 12. Request human review before using held-out test speakers.
 
-The five-hour scheduler runs the workflow hourly but uses persisted state to require a full
-five hours between completed cycles. GitHub-hosted runners perform CI and security scans;
-the self-hosted `dysarthria-gpu` runner performs model research.
+The workflow requests a run every ten minutes, subject to GitHub scheduling delays and the
+self-hosted runner being online. Each result advances the next reviewed candidate automatically.
+When a new model family needs approval or the finite catalog is exhausted, runs open one assigned
+GitHub review issue and continue their scheduled checks without starting an unapproved experiment.
+Approve the next approach by updating `autoresearch/approvals.json` only after Harish confirms the
+proposal. GitHub-hosted runners perform CI and security scans; the self-hosted
+`dysarthria-gpu` runner performs acoustic research.
 
 ## Metrics and promotion rules
 
@@ -342,7 +347,7 @@ Before calling the project ready:
 - the model revision and hashes are recorded;
 - baseline and ablations run on identical speaker splits;
 - all checks pass in GitHub Actions;
-- the five-hour workflow completes on the local runner;
+- the scheduled workflow completes on the local runner;
 - results are reproducible from a clean checkout and private dataset;
 - findings distinguish proposal, candidate result, and validated evidence;
 - the manuscript and README contain no unsupported metrics or clinical claims.

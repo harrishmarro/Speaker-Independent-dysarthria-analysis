@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+from dysarthria.acoustic_cv import leave_one_speaker_out, predict_speakers
 from locked.candidate_io import read_prepared_manifest, write_predictions
 
 
@@ -24,16 +25,8 @@ def main() -> None:
     settings = json.loads(
         (Path(__file__).resolve().parent / "configs/research/active.json").read_text()
     )
-    if settings["spectral_weight"] not in (0.5, 1.0, 2.0):
-        raise ValueError("unsupported spectral weight")
     if settings["aggregation"] not in ("mean", "median"):
         raise ValueError("unsupported aggregation")
-    classifier = settings.get("classifier", "centroid")
-    if classifier not in ("centroid", "speaker_knn"):
-        raise ValueError("unsupported classifier")
-    neighbors = settings.get("neighbors", 1)
-    if neighbors not in (1, 3, 5):
-        raise ValueError("unsupported neighbor count")
     aggregate = np.mean if settings["aggregation"] == "mean" else np.median
 
     def extract(path: str) -> np.ndarray:
@@ -86,63 +79,44 @@ def main() -> None:
                 raise ValueError(f"conflicting labels for training speaker {speaker}")
             speaker_labels[speaker] = row["label"]
             by_speaker[speaker].append(vectors[row["audio_path"]])
-    by_label: dict[str, list[np.ndarray]] = defaultdict(list)
-    for speaker, recordings in by_speaker.items():
-        by_label[speaker_labels[speaker]].append(aggregate(recordings, axis=0))
-    if set(by_label) != {"control", "dysarthria"}:
-        raise ValueError("training split must contain both labels")
-    training_vectors = np.stack([vector for values in by_label.values() for vector in values])
-    feature_mean = training_vectors.mean(axis=0)
-    feature_scale = training_vectors.std(axis=0)
-    feature_scale = np.where(feature_scale > 1e-6, feature_scale, 1.0)
-    weights = np.ones(training_vectors.shape[1], dtype=np.float32)
-    weights[8:] = settings["spectral_weight"]
-    centroids = {
-        label: np.mean(
-            [((vector - feature_mean) / feature_scale) * weights for vector in values], axis=0
-        )
-        for label, values in by_label.items()
+    training_features = {
+        speaker: aggregate(recordings, axis=0) for speaker, recordings in by_speaker.items()
     }
-    training_speakers = [
-        (
-            speaker,
-            speaker_labels[speaker],
-            ((aggregate(recordings, axis=0) - feature_mean) / feature_scale) * weights,
-        )
-        for speaker, recordings in sorted(by_speaker.items())
-    ]
     speaker_rows: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in rows:
         if row["split"] == "validation":
             speaker_rows[row["speaker_id"]].append(row)
-
-    predictions = []
-    for speaker_id, recordings in sorted(speaker_rows.items()):
-        vector = aggregate([vectors[row["audio_path"]] for row in recordings], axis=0)
-        vector = ((vector - feature_mean) / feature_scale) * weights
-        if classifier == "speaker_knn":
-            ranked = sorted(
-                (
-                    (float(np.linalg.norm(vector - training_vector)), speaker, label)
-                    for speaker, label, training_vector in training_speakers
-                )
-            )
-            closest = ranked[:neighbors]
-            probability = sum(label == "dysarthria" for _, _, label in closest) / len(closest)
-        else:
-            distances = {
-                label: float(np.linalg.norm(vector - center))
-                for label, center in centroids.items()
-            }
-            margin = distances["control"] - distances["dysarthria"]
-            probability = float(1.0 / (1.0 + np.exp(-margin)))
-        predictions.append({
-            "speaker_id": speaker_id,
-            "target": int(recordings[0]["label"] == "dysarthria"),
-            "prediction": int(probability > 0.5),
-            "probability": probability,
-        })
+    validation_features = {
+        speaker: aggregate([vectors[row["audio_path"]] for row in recordings], axis=0)
+        for speaker, recordings in speaker_rows.items()
+    }
+    all_labels = {**speaker_labels, **{
+        speaker: recordings[0]["label"] for speaker, recordings in speaker_rows.items()
+    }}
+    predictions = predict_speakers(
+        training_features, all_labels, validation_features, settings
+    )
     write_predictions(predictions, arguments.output)
+    output = Path(arguments.output)
+    write_predictions(
+        leave_one_speaker_out(training_features, speaker_labels, settings),
+        output.with_name("cv_predictions.jsonl"),
+    )
+    baseline = json.loads(
+        (Path(__file__).resolve().parent / "configs/research/baseline.json").read_text()
+    )
+    if baseline["aggregation"] == settings["aggregation"]:
+        baseline_features = training_features
+    else:
+        baseline_aggregate = np.mean if baseline["aggregation"] == "mean" else np.median
+        baseline_features = {
+            speaker: baseline_aggregate(recordings, axis=0)
+            for speaker, recordings in by_speaker.items()
+        }
+    write_predictions(
+        leave_one_speaker_out(baseline_features, speaker_labels, baseline),
+        output.with_name("baseline_cv_predictions.jsonl"),
+    )
     print(f"audio baseline wrote {len(predictions)} speaker predictions")
 
 

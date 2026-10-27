@@ -106,13 +106,21 @@ Apple Metal acceleration. See `docs/local-gpu-runner.md`. The synthetic manifest
 only for manual smoke validation and is never promoted to a research finding.
 
 The schedule requests a cycle every ten minutes, and each completed candidate queues the next
-candidate through its search-state commit. The current plan compares speaker-level nearest-
-neighbor classifiers with 1, 3, and 5 neighbors. The controller tries one variant from a
+candidate through its search-state commit. The search first compared speaker-level nearest-
+neighbor classifiers with 1, 3, and 5 neighbors; the next proposed approach is class-balanced
+ridge classification with three regularization strengths. It requires explicit approval in
+`autoresearch/approvals.json` before any ridge experiment runs. The controller tries one variant from a
 finite, reviewed set in `autoresearch/decide.py`, compares validation balanced accuracy
-with the accepted baseline, and records each outcome. Equal or worse variants restore the
+and leave-one-training-speaker-out cross-validation against the accepted baseline, and records
+each outcome. The cross-validation preprocessing is refitted within each speaker fold. Private
+speaker predictions remain under ignored `artifacts/`; the public registry contains only
+aggregate scores and a speaker count. Equal or worse variants restore the
 baseline configuration on `main`. A better variant opens a pull request for review before
 it can become the new baseline. The loop stops when the set is exhausted. This is bounded
-automated search; the runner does not yet write new Python model code.
+automated search; the runner does not write new Python model code. When an approach needs approval
+or the catalog is exhausted, scheduled checks continue and one assigned GitHub issue summarizes
+recent results and the proposed next step. No experiment or commit is created until an approach
+has been reviewed and approved.
 
 `experiments/registry.tsv` records each run's source commit, model-code commit, candidate
 configuration hash, and configuration values. Older rows have no verifiable run commit;
