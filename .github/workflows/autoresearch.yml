@@ -32,6 +32,7 @@ jobs:
       # GitHub-hosted runners provide /Users/runner automatically. Use the
       # checked-out workspace on this self-hosted Mac instead.
       RUNNER_TOOL_CACHE: ${{ github.workspace }}/.toolcache
+      AGENT_TOOLSDIRECTORY: ${{ github.workspace }}/.toolcache
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
