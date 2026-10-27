@@ -37,20 +37,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           clean: true
-      - name: Check ten-minute eligibility
-        id: schedule
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "schedule" ]]; then
-            python scheduler.py due --minutes 10 >> "$GITHUB_OUTPUT"
-          else
-            echo "due=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Prepare local tool cache
-        if: steps.schedule.outputs.due == 'true'
-        run: mkdir -p "$RUNNER_TOOL_CACHE"
       - name: Use local uv installation
-        if: steps.schedule.outputs.due == 'true'
         shell: bash
         run: |
           uv_bin="$(command -v uv || true)"
@@ -58,9 +45,20 @@ jobs:
             if [[ -z "$uv_bin" && -x "$candidate" ]]; then uv_bin="$candidate"; fi
           done
           [[ -n "$uv_bin" ]] || { echo "uv is not installed on the self-hosted runner"; exit 1; }
-          uv_dir="$(dirname "$uv_bin")"
-          echo "$uv_dir" >> "$GITHUB_PATH"
+          echo "$(dirname "$uv_bin")" >> "$GITHUB_PATH"
           "$uv_bin" --version
+      - name: Check ten-minute eligibility
+        id: schedule
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            uv run --python 3.14 python scheduler.py due --minutes 10 >> "$GITHUB_OUTPUT"
+          else
+            echo "due=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Prepare local tool cache
+        if: steps.schedule.outputs.due == 'true'
+        run: mkdir -p "$RUNNER_TOOL_CACHE"
       - if: steps.schedule.outputs.due == 'true'
         run: uv sync --python 3.14 --extra dev --extra model --locked
       - name: Verify private manifest and local accelerator
@@ -77,7 +75,7 @@ jobs:
         run: uv run python research.py --mode experiment --manifest "$DYSARTHRIA_MANIFEST"
       - name: Mark completed cycle
         if: steps.schedule.outputs.due == 'true'
-        run: python scheduler.py mark
+        run: uv run --python 3.14 python scheduler.py mark
       - name: Commit new experiment record
         if: steps.schedule.outputs.due == 'true'
         shell: bash
