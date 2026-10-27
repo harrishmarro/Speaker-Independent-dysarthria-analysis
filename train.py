@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Speaker-balanced, training-standardized acoustic baseline."""
+"""Speaker-balanced acoustic candidate with whole-recording spectral features."""
 
 from __future__ import annotations
 
@@ -32,20 +32,30 @@ def main() -> None:
         if scale > 0:
             signal = signal / scale
         frame_length = min(400, signal.size)
-        hop = max(1, frame_length // 2)
-        starts = np.arange(0, max(1, signal.size - frame_length + 1), hop)[:160]
+        frame_count = min(160, max(1, signal.size // max(1, frame_length // 2)))
+        starts = np.linspace(0, signal.size - frame_length, frame_count, dtype=int)
         frames = np.stack([signal[start : start + frame_length] for start in starts])
         window = np.hanning(frame_length).astype(np.float32)
         spectrum = np.abs(np.fft.rfft(frames * window, axis=1)) + 1e-6
         frequencies = np.fft.rfftfreq(frame_length, 1.0 / sample_rate)
         centroid = (spectrum * frequencies).sum(axis=1) / spectrum.sum(axis=1)
         energy = np.log1p((frames * frames).mean(axis=1) * 1_000.0)
-        crossings = np.mean(frames[:, 1:] * frames[:, :-1] < 0, axis=1)
-        return np.array(
+        crossings = (
+            np.mean(frames[:, 1:] * frames[:, :-1] < 0, axis=1)
+            if frame_length > 1 else np.zeros(frame_count)
+        )
+        spectral_bands = []
+        for lower, upper in zip((0, 300, 600, 1200, 2400, 4000),
+                                (300, 600, 1200, 2400, 4000, 8000), strict=True):
+            band = spectrum[:, (frequencies >= lower) & (frequencies < upper)]
+            power = np.log1p(np.mean(band * band, axis=1)) if band.size else np.zeros(frame_count)
+            spectral_bands.extend((power.mean(), power.std()))
+        summary = np.array(
             [signal.std(), np.mean(np.abs(signal)), centroid.mean(), centroid.std(),
              energy.mean(), energy.std(), crossings.mean(), crossings.std()],
             dtype=np.float32,
         )
+        return np.concatenate((summary, np.asarray(spectral_bands, dtype=np.float32)))
 
     # A candidate must never inspect held-out test audio during iteration.
     active_rows = [row for row in rows if row["split"] in {"train", "validation"}]
