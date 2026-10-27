@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import subprocess  # nosec B404
+import time
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -111,12 +112,48 @@ def ask_model(context: dict, api_key: str, model: str) -> dict:
         "max_output_tokens": 500,
         "store": False,
     }
-    try:
-        response = http_json("POST", "https://api.openai.com/v1/responses", api_key, payload)
-    except HTTPError as error:
-        raise RuntimeError(
-            f"GPT recovery API returned HTTP {error.code}; check the secret and model access"
-        ) from error
+    response = None
+    for attempt in range(2):
+        try:
+            response = http_json("POST", "https://api.openai.com/v1/responses",
+                                 api_key, payload)
+            break
+        except HTTPError as error:
+            if error.code == 429:
+                try:
+                    details = json.loads(error.read(8192))
+                    api_error = details.get("error", {})
+                    code = api_error.get("code") or api_error.get("type") or "unknown"
+                except (ValueError, AttributeError):
+                    code = "unknown"
+                if code in {"insufficient_quota", "billing_hard_limit_reached"}:
+                    raise RuntimeError(
+                        "GPT recovery API quota is exhausted; add credits or raise the "
+                        "OpenAI project budget before rerunning the self-check"
+                    ) from error
+                if attempt == 0:
+                    retry_after = error.headers.get("Retry-After", "5")
+                    try:
+                        delay = min(20.0, max(1.0, float(retry_after)))
+                    except ValueError:
+                        delay = 5.0
+                    print(f"GPT recovery API rate-limited; retrying once in {delay:g}s")
+                    time.sleep(delay)
+                    continue
+                raise RuntimeError(
+                    "GPT recovery API returned HTTP 429 after one retry; check API rate "
+                    "limits and project usage before rerunning"
+                ) from error
+            if error.code in (401, 403):
+                detail = "check the API key and project permissions"
+            elif error.code == 404:
+                detail = f"confirm that the API project can access model {model}"
+            else:
+                detail = "inspect the OpenAI API status and project configuration"
+            raise RuntimeError(f"GPT recovery API returned HTTP {error.code}; {detail}") \
+                from error
+    if response is None:
+        raise RuntimeError("GPT recovery API returned no response")
     chunks = [content["text"] for item in response.get("output", [])
               for content in item.get("content", []) if content.get("type") == "output_text"]
     if not chunks:
@@ -287,13 +324,17 @@ def main() -> None:
         api_key = os.environ.get("OPENAI_API_KEY", "")
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY repository secret is missing")
-        decision = ask_model(
-            {"workflow": "CI", "failed_jobs": [{"job": "validate",
-             "failed_steps": ["Run Ruff check"]}],
-             "public_hosted_log_excerpt": "E501 line too long in an example file"},
-            api_key,
-            os.environ.get("RECOVERY_MODEL", "gpt-6-sol"),
-        )
+        try:
+            decision = ask_model(
+                {"workflow": "CI", "failed_jobs": [{"job": "validate",
+                 "failed_steps": ["Run Ruff check"]}],
+                 "public_hosted_log_excerpt": "E501 line too long in an example file"},
+                api_key,
+                os.environ.get("RECOVERY_MODEL", "gpt-6-sol"),
+            )
+        except RuntimeError as error:
+            print(f"::error::{error}")
+            raise SystemExit(1) from None
         print(f"GPT recovery model is available; selected action: {decision['action']}")
         return
     repository = os.environ["GITHUB_REPOSITORY"]

@@ -1,6 +1,8 @@
 import json
 import subprocess
+from io import BytesIO
 from types import SimpleNamespace
+from urllib.error import HTTPError
 
 import pytest
 
@@ -146,3 +148,42 @@ def test_repeated_pipeline_failures_reuse_one_open_issue(monkeypatch):
         recovery.notify_human("owner/repo", run_id, "CI", "missing secret", "token",
                               "Review recovery configuration")
     assert len(issues) == 1
+
+
+def model_error(code, retry_after="5"):
+    body = json.dumps({"error": {"code": code}}).encode()
+    return HTTPError("https://api.openai.com/v1/responses", 429, "Too Many Requests",
+                     {"Retry-After": retry_after}, BytesIO(body))
+
+
+def test_quota_exhaustion_is_actionable_and_not_retried(monkeypatch):
+    calls = []
+
+    def quota_error(*args, **kwargs):
+        calls.append(True)
+        raise model_error("insufficient_quota")
+
+    monkeypatch.setattr(recovery, "http_json", quota_error)
+    monkeypatch.setattr(recovery.time, "sleep", lambda seconds: pytest.fail("must not retry"))
+    with pytest.raises(RuntimeError, match="add credits or raise"):
+        recovery.ask_model({}, "test-key", "gpt-6-sol")
+    assert len(calls) == 1
+
+
+def test_temporary_rate_limit_retries_once_and_succeeds(monkeypatch):
+    calls = []
+    delays = []
+
+    def sometimes_limited(*args, **kwargs):
+        calls.append(True)
+        if len(calls) == 1:
+            raise model_error("rate_limit_exceeded", "2")
+        return {"output": [{"content": [{"type": "output_text", "text":
+                '{"action":"retry","summary":"temporary outage"}'}]}]}
+
+    monkeypatch.setattr(recovery, "http_json", sometimes_limited)
+    monkeypatch.setattr(recovery.time, "sleep", delays.append)
+    result = recovery.ask_model({}, "test-key", "gpt-6-sol")
+    assert result["action"] == "retry"
+    assert len(calls) == 2
+    assert delays == [2.0]

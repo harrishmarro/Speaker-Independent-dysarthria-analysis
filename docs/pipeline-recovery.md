@@ -18,6 +18,11 @@ Then run **Actions → Pipeline recovery → Run workflow** once. Its self-check
 synthetic CI error to GPT-6 SOL and confirms the secret and API model access. It does not
 modify code, retry a workflow, or open an issue.
 
+If the self-check reports HTTP 429, inspect the OpenAI API project's usage and billing.
+`insufficient_quota` requires credits or a higher project budget. A temporary rate limit
+is retried once using `Retry-After` (capped at 20 seconds); if it persists, wait for the
+rate-limit window or raise the project's limits before running the self-check again.
+
 If the key is absent or the model is unavailable, the workflow opens an assigned GitHub issue
 for non-Security failures with a link to the failed run. Security failures remain in the
 Actions run and its summary, and the recovery job fails to preserve GitHub's failure alert;
