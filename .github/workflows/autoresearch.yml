@@ -13,7 +13,7 @@ on:
       - "autoresearch/**"
       - ".github/workflows/autoresearch.yml"
   schedule:
-    # Check every ten minutes; the persisted gate enforces a full ten-minute interval.
+    # Request one cycle on each ten-minute clock mark; GitHub may deliver it late.
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
@@ -48,15 +48,10 @@ jobs:
           [[ -n "$uv_bin" ]] || { echo "uv is not installed on the self-hosted runner"; exit 1; }
           echo "$(dirname "$uv_bin")" >> "$GITHUB_PATH"
           "$uv_bin" --version
-      - name: Check ten-minute eligibility
+      - name: Accept workflow trigger
         id: schedule
         shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "schedule" ]]; then
-            uv run --python 3.14 python scheduler.py due --minutes 10 >> "$GITHUB_OUTPUT"
-          else
-            echo "due=true" >> "$GITHUB_OUTPUT"
-          fi
+        run: echo "due=true" >> "$GITHUB_OUTPUT"
       - name: Prepare local tool cache
         if: steps.schedule.outputs.due == 'true'
         run: mkdir -p "$RUNNER_TOOL_CACHE"

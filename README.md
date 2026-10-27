@@ -105,7 +105,7 @@ labelled `dysarthria-gpu`. It requires a private licensed dataset manifest and e
 Apple Metal acceleration. See `docs/local-gpu-runner.md`. The synthetic manifest is accepted
 only for manual smoke validation and is never promoted to a research finding.
 
-The current schedule checks every ten minutes. The controller tries one variant from a
+The current schedule requests a cycle every ten minutes. The controller tries one variant from a
 finite, reviewed set in `autoresearch/decide.py`, compares validation balanced accuracy
 with the accepted baseline, and records each outcome. Equal or worse variants restore the
 baseline configuration on `main`. A better variant opens a pull request for review before
