@@ -13,8 +13,8 @@ on:
       - "autoresearch/**"
       - ".github/workflows/autoresearch.yml"
   schedule:
-    # Check hourly; the persisted gate enforces a full five-hour interval.
-    - cron: "23 * * * *"
+    # Check every ten minutes; the persisted gate enforces a full ten-minute interval.
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -36,12 +36,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           clean: true
-      - name: Check five-hour eligibility
+      - name: Check ten-minute eligibility
         id: schedule
         shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
-            python scheduler.py due --hours 5 >> "$GITHUB_OUTPUT"
+            python scheduler.py due --minutes 10 >> "$GITHUB_OUTPUT"
           else
             echo "due=true" >> "$GITHUB_OUTPUT"
           fi
