@@ -73,6 +73,9 @@ jobs:
       - name: Run controlled research harness
         if: steps.schedule.outputs.due == 'true'
         run: uv run python research.py --mode experiment --manifest "$DYSARTHRIA_MANIFEST"
+      - name: Propose next bounded candidate
+        if: steps.schedule.outputs.due == 'true'
+        run: uv run python autoresearch/propose.py
       - name: Mark completed cycle
         if: steps.schedule.outputs.due == 'true'
         run: uv run --python 3.14 python scheduler.py mark
@@ -80,12 +83,12 @@ jobs:
         if: steps.schedule.outputs.due == 'true'
         shell: bash
         run: |
-          if git diff --quiet -- experiments/registry.tsv experiments/schedule_state.json; then
+          if git diff --quiet -- experiments/registry.tsv experiments/schedule_state.json configs/research/active.json; then
             echo "No new experiment or scheduler state to record."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/registry.tsv experiments/schedule_state.json
+          git add experiments/registry.tsv experiments/schedule_state.json configs/research/active.json
           git commit -m "Record scheduled research cycle"
           git push

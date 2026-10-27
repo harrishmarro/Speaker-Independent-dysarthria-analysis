@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 from collections import defaultdict
+from pathlib import Path
 
 import numpy as np
 import soundfile as sf
@@ -19,6 +21,14 @@ def main() -> None:
     arguments = parser.parse_args()
 
     rows = read_prepared_manifest(arguments.manifest)
+    settings = json.loads(
+        (Path(__file__).resolve().parent / "configs/research/active.json").read_text()
+    )
+    if settings["spectral_weight"] not in (0.5, 1.0, 2.0):
+        raise ValueError("unsupported spectral weight")
+    if settings["aggregation"] not in ("mean", "median"):
+        raise ValueError("unsupported aggregation")
+    aggregate = np.mean if settings["aggregation"] == "mean" else np.median
 
     def extract(path: str) -> np.ndarray:
         audio, sample_rate = sf.read(path, dtype="float32", always_2d=False)
@@ -55,7 +65,8 @@ def main() -> None:
              energy.mean(), energy.std(), crossings.mean(), crossings.std()],
             dtype=np.float32,
         )
-        return np.concatenate((summary, np.asarray(spectral_bands, dtype=np.float32)))
+        bands = np.asarray(spectral_bands, dtype=np.float32)
+        return np.concatenate((summary, bands))
 
     # A candidate must never inspect held-out test audio during iteration.
     active_rows = [row for row in rows if row["split"] in {"train", "validation"}]
@@ -71,15 +82,19 @@ def main() -> None:
             by_speaker[speaker].append(vectors[row["audio_path"]])
     by_label: dict[str, list[np.ndarray]] = defaultdict(list)
     for speaker, recordings in by_speaker.items():
-        by_label[speaker_labels[speaker]].append(np.mean(recordings, axis=0))
+        by_label[speaker_labels[speaker]].append(aggregate(recordings, axis=0))
     if set(by_label) != {"control", "dysarthria"}:
         raise ValueError("training split must contain both labels")
     training_vectors = np.stack([vector for values in by_label.values() for vector in values])
     feature_mean = training_vectors.mean(axis=0)
     feature_scale = training_vectors.std(axis=0)
     feature_scale = np.where(feature_scale > 1e-6, feature_scale, 1.0)
+    weights = np.ones(training_vectors.shape[1], dtype=np.float32)
+    weights[8:] = settings["spectral_weight"]
     centroids = {
-        label: np.mean([(vector - feature_mean) / feature_scale for vector in values], axis=0)
+        label: np.mean(
+            [((vector - feature_mean) / feature_scale) * weights for vector in values], axis=0
+        )
         for label, values in by_label.items()
     }
     speaker_rows: dict[str, list[dict[str, str]]] = defaultdict(list)
@@ -89,8 +104,8 @@ def main() -> None:
 
     predictions = []
     for speaker_id, recordings in sorted(speaker_rows.items()):
-        vector = np.mean([vectors[row["audio_path"]] for row in recordings], axis=0)
-        vector = (vector - feature_mean) / feature_scale
+        vector = aggregate([vectors[row["audio_path"]] for row in recordings], axis=0)
+        vector = ((vector - feature_mean) / feature_scale) * weights
         distances = {
             label: float(np.linalg.norm(vector - center))
             for label, center in centroids.items()

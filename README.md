@@ -100,10 +100,16 @@ labels are locked.
 python research.py --mode smoke
 ```
 
-The scheduled GitHub workflow invokes the controller every five hours on a self-hosted runner
+The scheduled GitHub workflow checks for an eligible cycle every ten minutes on a self-hosted runner
 labelled `dysarthria-gpu`. It requires a private licensed dataset manifest and either CUDA or
 Apple Metal acceleration. See `docs/local-gpu-runner.md`. The synthetic manifest is accepted
 only for manual smoke validation and is never promoted to a research finding.
+
+The current schedule checks every ten minutes. After a completed experiment, the controller
+can select the next candidate from a finite, reviewed set of spectral-weight and speaker-
+aggregation variants in `autoresearch/propose.py`. It stops when a candidate reaches the
+confirmation threshold or the set is exhausted. This is bounded automated search, not an
+unrestricted code-writing agent. Each candidate has a distinct signature and registry entry.
 
 ## Evaluation rules
 

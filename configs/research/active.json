@@ -1,0 +1,5 @@
+{
+  "candidate": "spectral_equal",
+  "spectral_weight": 1.0,
+  "aggregation": "mean"
+}

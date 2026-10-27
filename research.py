@@ -18,6 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 REGISTRY = ROOT / "experiments" / "registry.tsv"
+ACTIVE_CANDIDATE = ROOT / "configs" / "research" / "active.json"
 ALLOWED_PROGRAMS = {"security.py", "prepare.py", "train.py", "evaluate.py"}
 
 
@@ -74,7 +75,8 @@ def main() -> None:
 
     manifest = ROOT / arguments.manifest
     signature_input = ":".join(
-        [arguments.mode, str(arguments.seed), digest(ROOT / "train.py"), digest(manifest)]
+        [arguments.mode, str(arguments.seed), digest(ROOT / "train.py"),
+         digest(ACTIVE_CANDIDATE), digest(manifest)]
     )
     signature = hashlib.sha256(signature_input.encode()).hexdigest()[:16]
     if signature in existing_signatures():
@@ -135,7 +137,7 @@ def main() -> None:
             "recall": f"{metrics['recall']:.6f}",
             "runtime_seconds": f"{duration:.3f}",
             "status": status,
-            "description": "speaker-balanced whole-recording spectral candidate",
+            "description": json.loads(ACTIVE_CANDIDATE.read_text())["candidate"],
         }
     )
     print(f"recorded {experiment_id} as {status}")
