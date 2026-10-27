@@ -49,14 +49,20 @@ jobs:
       - name: Prepare local tool cache
         if: steps.schedule.outputs.due == 'true'
         run: mkdir -p "$RUNNER_TOOL_CACHE"
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - name: Use local uv installation
         if: steps.schedule.outputs.due == 'true'
-        with:
-          python-version: "3.12"
-      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
-        if: steps.schedule.outputs.due == 'true'
+        shell: bash
+        run: |
+          uv_bin="$(command -v uv || true)"
+          for candidate in "$HOME/.local/bin/uv" /opt/homebrew/bin/uv /usr/local/bin/uv; do
+            if [[ -z "$uv_bin" && -x "$candidate" ]]; then uv_bin="$candidate"; fi
+          done
+          [[ -n "$uv_bin" ]] || { echo "uv is not installed on the self-hosted runner"; exit 1; }
+          uv_dir="$(dirname "$uv_bin")"
+          echo "$uv_dir" >> "$GITHUB_PATH"
+          "$uv_bin" --version
       - if: steps.schedule.outputs.due == 'true'
-        run: uv sync --extra dev --extra model --locked
+        run: uv sync --python 3.14 --extra dev --extra model --locked
       - name: Verify private manifest and local accelerator
         if: steps.schedule.outputs.due == 'true'
         run: uv run python verify_runner.py --manifest "$DYSARTHRIA_MANIFEST"
