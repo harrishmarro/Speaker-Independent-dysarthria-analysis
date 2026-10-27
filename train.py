@@ -63,7 +63,10 @@ def main() -> None:
     predictions = []
     for speaker_id, recordings in sorted(speaker_rows.items()):
         vector = np.mean([vectors[row["audio_path"]] for row in recordings], axis=0)
-        distances = {label: float(np.linalg.norm(vector - center)) for label, center in centroids.items()}
+        distances = {
+            label: float(np.linalg.norm(vector - center))
+            for label, center in centroids.items()
+        }
         predicted = min(distances, key=distances.get)
         margin = distances["control"] - distances["dysarthria"]
         probability = float(1.0 / (1.0 + np.exp(-margin)))

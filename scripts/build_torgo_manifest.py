@@ -29,17 +29,28 @@ def main() -> None:
         match = SPEAKER_RE.fullmatch(audio.parent.name)
         if not match:
             raise SystemExit(f"cannot derive speaker from directory: {audio.parent}")
-        rows.append({"audio_path": str(audio.resolve()), "speaker_id": match.group(1), "label": label,
-                     "severity": "", "transcript": ""})
+        rows.append(
+            {
+                "audio_path": str(audio.resolve()),
+                "speaker_id": match.group(1),
+                "label": label,
+                "severity": "",
+                "transcript": "",
+            }
+        )
 
     if not rows:
         raise SystemExit("no WAV files found")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["audio_path", "speaker_id", "label", "severity", "transcript"])
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["audio_path", "speaker_id", "label", "severity", "transcript"],
+        )
         writer.writeheader()
         writer.writerows(rows)
-    print(f"wrote {len(rows)} rows for {len({r['speaker_id'] for r in rows})} speakers to {args.output}")
+    speaker_count = len({row["speaker_id"] for row in rows})
+    print(f"wrote {len(rows)} rows for {speaker_count} speakers to {args.output}")
 
 
 if __name__ == "__main__":
