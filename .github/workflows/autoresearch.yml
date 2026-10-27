@@ -105,7 +105,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add experiments/registry.tsv experiments/search_state.json experiments/schedule_state.json
           git commit -m "research: record non-improving candidate"
-          git push
+          bash scripts/push_main_with_retry.sh
       - name: Propose improved candidate for review
         if: steps.candidate.outputs.candidate_available == 'true' && steps.decision.outputs.improved == 'true'
         shell: bash
@@ -116,7 +116,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add experiments/search_state.json experiments/schedule_state.json
           git commit -m "research: record candidate decision state"
-          git push
+          bash scripts/push_main_with_retry.sh
           branch="research/${{ steps.decision.outputs.experiment_id }}"
           git switch -c "$branch"
           git add configs/research/active.json configs/research/baseline.json experiments/registry.tsv
