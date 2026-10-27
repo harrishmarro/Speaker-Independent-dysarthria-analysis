@@ -11,6 +11,7 @@ on:
       - "research.py"
       - "verify_runner.py"
       - "autoresearch/**"
+      - "experiments/search_state.json"
       - ".github/workflows/autoresearch.yml"
   schedule:
     # Request one cycle on each ten-minute clock mark; GitHub may deliver it late.
