@@ -133,6 +133,55 @@ def test_model_self_check_uses_only_synthetic_context(monkeypatch):
     assert "example file" in seen[0]["public_hosted_log_excerpt"]
 
 
+def test_no_key_self_check_uses_reviewed_rules(monkeypatch, capsys):
+    monkeypatch.setenv("RECOVERY_SELF_CHECK", "1")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(recovery, "ask_model", lambda *args: pytest.fail("API must not be called"))
+    recovery.main()
+    assert "Rule-based recovery is ready; selected action: ruff_fix" in capsys.readouterr().out
+
+
+def test_rules_recognize_known_failures_and_escalate_unknown():
+    cases = [
+        ({"workflow": "CI", "failed_jobs": [{"failed_steps": ["Run uv run mypy"]}],
+          "public_hosted_log_excerpt": 'Cannot find implementation for module named "numpy"'},
+         "add_dev_dependency"),
+        ({"workflow": "CI", "failed_jobs": [{"failed_steps": ["Run uv run ruff check ."]}],
+          "public_hosted_log_excerpt": "E501 Line too long"}, "ruff_fix"),
+        ({"workflow": "CI", "failed_jobs": [{"failed_steps": ["Run uv sync --locked"]}],
+          "public_hosted_log_excerpt": "lockfile needs to be updated"}, "lock_refresh"),
+        ({"workflow": "CI", "failed_jobs": [],
+          "public_hosted_log_excerpt": "HTTP 503 connection reset"}, "retry"),
+        ({"workflow": "Secure autoresearch cycle", "failed_jobs": [
+            {"failed_steps": ["Run controlled research harness"]}
+        ]}, "human"),
+    ]
+    for context, expected in cases:
+        assert recovery.rule_based_decision(context)["action"] == expected
+
+
+def test_api_quota_failure_falls_back_to_rules(monkeypatch):
+    for name, value in {
+        "GITHUB_REPOSITORY": "owner/repo", "FAILED_RUN_ID": "123",
+        "FAILED_WORKFLOW": "CI", "FAILED_HEAD_BRANCH": "main",
+        "FAILED_HEAD_REPOSITORY": "owner/repo", "FAILED_RUN_ATTEMPT": "1",
+        "GH_TOKEN": "test-token", "OPENAI_API_KEY": "test-key",
+    }.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.delenv("RECOVERY_SELF_CHECK", raising=False)
+    monkeypatch.setattr(recovery, "get_failure_context", lambda *args: {
+        "workflow": "CI", "failed_jobs": [], "public_hosted_log_excerpt": "HTTP 503"
+    })
+    monkeypatch.setattr(recovery, "ask_model", lambda *args: (_ for _ in ()).throw(
+        RuntimeError("API quota exhausted")
+    ))
+    called = []
+    monkeypatch.setattr(recovery, "http_json", lambda *args, **kwargs: called.append(args))
+    monkeypatch.setattr(recovery, "notify_human", lambda *args: pytest.fail("should retry"))
+    recovery.main()
+    assert any("rerun-failed-jobs" in args[1] for args in called)
+
+
 def test_repeated_pipeline_failures_reuse_one_open_issue(monkeypatch):
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
     issues = []

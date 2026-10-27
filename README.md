@@ -123,8 +123,8 @@ recent results and the proposed next step. No experiment or commit is created un
 has been reviewed and approved.
 
 Failed workflows are handled by a separate [bounded recovery workflow](docs/pipeline-recovery.md).
-With the `OPENAI_API_KEY` Actions secret configured for `gpt-6-sol`, it can retry a transient
-failure once or propose a tested CI repair PR from a small allowlist. Failures needing credentials,
+Without an API key, reviewed rules can retry a known transient failure once or propose a tested
+CI repair PR from a small allowlist. GPT-6 SOL diagnosis is optional. Failures needing credentials,
 runner access, security review, or a broader code change are escalated to the owner.
 
 `experiments/registry.tsv` records each run's source commit, model-code commit, candidate
