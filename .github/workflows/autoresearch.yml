@@ -60,9 +60,20 @@ jobs:
         run: mkdir -p "$RUNNER_TOOL_CACHE"
       - if: steps.schedule.outputs.due == 'true'
         run: uv sync --python 3.14 --extra dev --extra model --locked
-      - name: Verify private manifest and local accelerator
+      - name: Verify private manifest and compute device
         if: steps.schedule.outputs.due == 'true'
-        run: uv run python verify_runner.py --manifest "$DYSARTHRIA_MANIFEST"
+        shell: bash
+        run: |
+          if [[ -z "${DYSARTHRIA_MANIFEST:-}" ]]; then
+            DYSARTHRIA_MANIFEST="$HOME/private-data/torgo/splits.clean.csv"
+            echo "Using the default private TORGO manifest location"
+          fi
+          if [[ ! -f "$DYSARTHRIA_MANIFEST" ]]; then
+            echo "::error::Private TORGO manifest is missing. Set DYSARTHRIA_MANIFEST in the runner .env file or place splits.clean.csv under ~/private-data/torgo/."
+            exit 1
+          fi
+          echo "DYSARTHRIA_MANIFEST=$DYSARTHRIA_MANIFEST" >> "$GITHUB_ENV"
+          uv run python verify_runner.py --manifest "$DYSARTHRIA_MANIFEST" --allow-cpu
       - if: steps.schedule.outputs.due == 'true'
         run: uv run python security.py train.py
       - if: steps.schedule.outputs.due == 'true'

@@ -46,8 +46,13 @@ uv sync --extra dev --extra model --locked
 uv run python verify_runner.py --manifest "$DYSARTHRIA_MANIFEST"
 ```
 
-The check must report either `mps:Apple Metal` or a CUDA device. The current acoustic
-candidates use CPU; WavLM training has not been connected to this workflow.
+The current acoustic candidates use CPU, so the scheduled workflow passes `--allow-cpu`
+and can report `cpu (acoustic candidate)` when Metal is unavailable. For future neural
+training, run the check without `--allow-cpu`; it must report either `mps:Apple Metal`
+or a CUDA device. WavLM training has not been connected to this workflow.
+If `DYSARTHRIA_MANIFEST` is unset in the runner service, the workflow also checks
+`~/private-data/torgo/splits.clean.csv`. Its preflight reports whether the private
+manifest is missing or PyTorch cannot access the accelerator.
 
 ## Public-repository precautions
 
