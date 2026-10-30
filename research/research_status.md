@@ -55,8 +55,17 @@ and stronger validation evidence are available.
 `train.py` currently computes whole-recording spectral summaries and one prediction per
 validation speaker. `src/dysarthria/acoustic_cv.py` supports centroid, nearest-neighbor,
 and class-balanced ridge heads. The prior catalog was exhausted at `next_index: 6`.
-The MFCC study adds three reviewed classical candidates after that index. No MFCC
-performance result is available yet; the private runner will record them separately.
+The MFCC study adds three reviewed classical candidates after that index. The first
+result is recorded in the update below; the remaining candidates run separately.
+
+### Update: first MFCC candidate (30 October 2026 UTC)
+
+`EXP-20261030T065554Z-208dd7` tested MFCC features with class-balanced ridge
+alpha 0.1. Validation balanced accuracy was 0.500 and F1 was 0.000, tying the
+retained baseline. Training-speaker cross-validation balanced accuracy was 0.467
+versus 0.817 for the baseline. The controller rejected the candidate and advanced
+to index 7. Alpha 1.0 and 10.0 are still pending in this snapshot. No held-out
+test result was used.
 
 The next controlled comparison should establish a named MFCC-based classical baseline
 before training WavLM. Use the same fixed speaker split, train-only preprocessing,

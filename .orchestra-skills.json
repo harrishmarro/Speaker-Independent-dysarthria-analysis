@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "installedAt": "2026-10-30T07:09:55.638Z",
+  "skills": [
+    {
+      "category": "0-autoresearch-skill",
+      "skill": "0-autoresearch-skill",
+      "standalone": true
+    },
+    {
+      "category": "21-research-ideation",
+      "skill": "brainstorming-research-ideas",
+      "standalone": false
+    },
+    {
+      "category": "21-research-ideation",
+      "skill": "creative-thinking-for-research",
+      "standalone": false
+    }
+  ],
+  "agents": [
+    "codex"
+  ]
+}
