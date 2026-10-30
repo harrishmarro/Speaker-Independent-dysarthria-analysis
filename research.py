@@ -22,6 +22,7 @@ REGISTRY = ROOT / "experiments" / "registry.tsv"
 ACTIVE_CANDIDATE = ROOT / "configs" / "research" / "active.json"
 ACCEPTED_BASELINE = ROOT / "configs" / "research" / "baseline.json"
 CV_CODE = ROOT / "src" / "dysarthria" / "acoustic_cv.py"
+MFCC_CODE = ROOT / "src" / "dysarthria" / "mfcc_features.py"
 ALLOWED_PROGRAMS = {"security.py", "prepare.py", "train.py", "evaluate.py"}
 
 
@@ -106,6 +107,7 @@ def main() -> None:
     manifest = ROOT / arguments.manifest
     signature_input = ":".join(
         [arguments.mode, str(arguments.seed), digest(ROOT / "train.py"), digest(CV_CODE),
+         digest(MFCC_CODE),
          digest(ACTIVE_CANDIDATE), digest(ACCEPTED_BASELINE), digest(manifest)]
     )
     signature = hashlib.sha256(signature_input.encode()).hexdigest()[:16]
@@ -124,6 +126,7 @@ def main() -> None:
     started = time.monotonic()
 
     run([sys.executable, "security.py", "train.py"], timeout=60)
+    run([sys.executable, "security.py", "src/dysarthria/mfcc_features.py"], timeout=60)
     run(
         [
             sys.executable,

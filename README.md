@@ -101,15 +101,16 @@ python research.py --mode smoke
 ```
 
 The scheduled GitHub workflow checks for an eligible cycle every ten minutes on a self-hosted runner
-labelled `dysarthria-gpu`. It requires a private licensed dataset manifest and either CUDA or
-Apple Metal acceleration. See `docs/local-gpu-runner.md`. The synthetic manifest is accepted
+labelled `dysarthria-gpu`. It requires a private licensed dataset manifest; current acoustic
+candidates can run on CPU. See `docs/local-gpu-runner.md`. The synthetic manifest is accepted
 only for manual smoke validation and is never promoted to a research finding.
 
 The schedule requests a cycle every ten minutes, and each completed candidate queues the next
-candidate through its search-state commit. The search first compared speaker-level nearest-
-neighbor classifiers with 1, 3, and 5 neighbors; the next proposed approach is class-balanced
-ridge classification with three regularization strengths. It requires explicit approval in
-`autoresearch/approvals.json` before any ridge experiment runs. The controller tries one variant from a
+candidate through its search-state commit. The completed search compared speaker-level nearest-
+neighbor classifiers with 1, 3, and 5 neighbors and class-balanced ridge classifiers with three
+regularization strengths. None improved the accepted validation baseline. The current evidence is
+documented in [research status](research/research_status.md). The next approved study is the
+[MFCC classical baseline](research/designs/mfcc_baseline.md). The controller tries one variant from a
 finite, reviewed set in `autoresearch/decide.py`, compares validation balanced accuracy
 and leave-one-training-speaker-out cross-validation against the accepted baseline, and records
 each outcome. The cross-validation preprocessing is refitted within each speaker fold. Private

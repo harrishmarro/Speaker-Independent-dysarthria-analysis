@@ -173,8 +173,9 @@ uv sync --extra dev --extra model --locked
 uv run python verify_runner.py --manifest "$DYSARTHRIA_MANIFEST"
 ```
 
-The check must report either `mps:Apple Metal` or a CUDA accelerator. The current scheduled
-acoustic candidates run on CPU after the runner check; WavLM training is not implemented yet.
+For the current CPU acoustic candidates, the scheduled workflow passes `--allow-cpu` to
+the runner check. Run without that flag before neural training; it must then report
+`mps:Apple Metal` or CUDA. WavLM training is not implemented yet.
 
 The public repository intentionally does not run model experiments on pull requests. This
 prevents untrusted fork code from reaching the local machine. Keep branch protection enabled
@@ -218,6 +219,10 @@ Every experiment starts with one falsifiable hypothesis. Use this order:
 
 The workflow requests a run every ten minutes, subject to GitHub scheduling delays and the
 self-hosted runner being online. Each result advances the next reviewed candidate automatically.
+The completed ridge trials and their limitations are recorded in `research/research_status.md`.
+The next approved family is the MFCC plus class-balanced ridge design in
+`research/designs/mfcc_baseline.md`; it has three fixed penalty values and starts at
+candidate index 6.
 When a new model family needs approval or the finite catalog is exhausted, runs open one assigned
 GitHub review issue and continue their scheduled checks without starting an unapproved experiment.
 Approve the next approach by updating `autoresearch/approvals.json` only after Harish confirms the
@@ -320,7 +325,8 @@ machine running. Use an always-on or cloud GPU when uninterrupted operation is r
 ### No accelerator is detected
 
 Run `verify_runner.py` locally. Confirm Apple Silicon plus a PyTorch MPS build, or use a CUDA
-machine. Do not silently fall back to CPU for a claimed GPU experiment.
+machine for neural experiments. The current MFCC and spectral candidates intentionally
+allow CPU and make no GPU-performance claim.
 
 ### The private manifest is rejected
 

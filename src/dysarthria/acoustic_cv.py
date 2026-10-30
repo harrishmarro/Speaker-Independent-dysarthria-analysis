@@ -21,6 +21,9 @@ def predict_speakers(
     weight = settings.get("spectral_weight")
     if weight not in (0.5, 1.0, 2.0):
         raise ValueError("unsupported spectral weight")
+    feature_set = settings.get("feature_set", "spectral")
+    if feature_set not in ("spectral", "mfcc"):
+        raise ValueError("unsupported feature set")
     classifier = settings.get("classifier", "centroid")
     if classifier not in ("centroid", "speaker_knn", "ridge"):
         raise ValueError("unsupported classifier")
@@ -37,7 +40,8 @@ def predict_speakers(
     mean = matrix.mean(axis=0)
     scale = np.where(matrix.std(axis=0) > 1e-6, matrix.std(axis=0), 1.0)
     weights = np.ones(matrix.shape[1], dtype=np.float32)
-    weights[8:] = float(weight)
+    if feature_set == "spectral":
+        weights[8:] = float(weight)
 
     def standardize(vector: np.ndarray) -> np.ndarray:
         return ((vector - mean) / scale) * weights

@@ -35,3 +35,13 @@ def test_new_approach_waits_for_explicit_approval(tmp_path, monkeypatch, capsys)
     controller.main()
     assert "candidate_available=true" in capsys.readouterr().out
     assert json.loads(active.read_text())["candidate"] == "ridge_0_1"
+
+    state.write_text('{"next_index": 6}')
+    controller.main()
+    assert "review_reason=approach_approval_required" in capsys.readouterr().out
+    approvals.write_text(
+        '{"approved_approaches": ["centroid", "speaker_knn", "ridge", "mfcc"]}'
+    )
+    controller.main()
+    assert "candidate_available=true" in capsys.readouterr().out
+    assert json.loads(active.read_text())["candidate"] == "mfcc_ridge_0_1"

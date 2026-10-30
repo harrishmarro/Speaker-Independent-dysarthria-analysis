@@ -27,7 +27,20 @@ CANDIDATES = (
      "classifier": "ridge", "ridge_alpha": 1.0},
     {"candidate": "ridge_10", "spectral_weight": 1.0, "aggregation": "mean",
      "classifier": "ridge", "ridge_alpha": 10.0},
+    {"candidate": "mfcc_ridge_0_1", "feature_set": "mfcc", "spectral_weight": 1.0,
+     "aggregation": "mean", "classifier": "ridge", "ridge_alpha": 0.1},
+    {"candidate": "mfcc_ridge_1", "feature_set": "mfcc", "spectral_weight": 1.0,
+     "aggregation": "mean", "classifier": "ridge", "ridge_alpha": 1.0},
+    {"candidate": "mfcc_ridge_10", "feature_set": "mfcc", "spectral_weight": 1.0,
+     "aggregation": "mean", "classifier": "ridge", "ridge_alpha": 10.0},
 )
+
+
+def approach(candidate: dict[str, object]) -> str:
+    """Gate a new feature family separately from its classifier head."""
+    if candidate.get("feature_set") == "mfcc":
+        return "mfcc"
+    return str(candidate.get("classifier", "centroid"))
 
 
 def decide(
@@ -57,8 +70,8 @@ def main() -> None:
             print("review_required=true")
             print("review_reason=catalog_exhausted")
             return
-        approach = CANDIDATES[index].get("classifier", "centroid")
-        if approach not in approved:
+        candidate_approach = approach(CANDIDATES[index])
+        if candidate_approach not in approved:
             print("candidate_available=false")
             print("review_required=true")
             print("review_reason=approach_approval_required")
@@ -71,7 +84,7 @@ def main() -> None:
 
     if index >= len(CANDIDATES):
         raise ValueError("no candidate was prepared")
-    if CANDIDATES[index].get("classifier", "centroid") not in approved:
+    if approach(CANDIDATES[index]) not in approved:
         raise ValueError("candidate approach has not been approved")
     with REGISTRY.open(newline="", encoding="utf-8") as handle:
         records = list(csv.DictReader(handle, delimiter="\t"))

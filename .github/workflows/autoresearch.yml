@@ -77,6 +77,8 @@ jobs:
       - if: steps.schedule.outputs.due == 'true'
         run: uv run python security.py train.py
       - if: steps.schedule.outputs.due == 'true'
+        run: uv run python security.py src/dysarthria/mfcc_features.py
+      - if: steps.schedule.outputs.due == 'true'
         run: uv run ruff check .
       - if: steps.schedule.outputs.due == 'true'
         run: uv run pytest
@@ -98,6 +100,7 @@ jobs:
         if: steps.candidate.outputs.candidate_available == 'true'
         run: |
           uv run python security.py train.py
+          uv run python security.py src/dysarthria/mfcc_features.py
           uv run ruff check .
           uv run pytest
       - name: Run controlled research harness

@@ -483,6 +483,7 @@ dev = [
     { name = "pip-audit" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "soundfile" },
 ]
 model = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -502,6 +503,7 @@ requires-dist = [
     { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.8,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3,<10" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8,<1" },
+    { name = "soundfile", marker = "extra == 'dev'", specifier = ">=0.13,<1" },
     { name = "soundfile", marker = "extra == 'model'", specifier = ">=0.13,<1" },
     { name = "torch", marker = "extra == 'model'", specifier = ">=2.5,<3" },
     { name = "transformers", marker = "extra == 'model'", specifier = ">=4.46,<5" },
