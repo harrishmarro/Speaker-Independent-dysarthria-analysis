@@ -79,3 +79,18 @@ scheduled experiment harness or a verified pretrained checkpoint.
 Before a strong performance claim, confirm the dataset snapshot and license, repeat
 promising candidates across seeds or speaker folds, analyze recording/microphone effects,
 and arrange human review of a single held-out test evaluation.
+
+### Update: MFCC family complete (30 October 2026 UTC)
+
+The registry now contains all three planned MFCC-plus-ridge trials. Penalties 0.1, 1.0,
+and 10.0 each scored 0.500 validation balanced accuracy and 0.000 validation F1.
+Training-speaker cross-validation balanced accuracy was 0.467, 0.467, and 0.633,
+respectively, versus 0.817 for the retained spectral baseline in each run. None met
+the predeclared promotion rule. The accepted model remains `spectral_equal`, and the
+finite candidate catalog is exhausted (`next_index: 9`). The earlier snapshot above
+predates the second and third MFCC results; the registry is authoritative.
+
+This completes the first acoustic-feature comparison, **not** validation of reliable
+speech measurement for a new patient. The next research step is a recording-condition
+audit and stronger unseen-speaker evaluation. See
+`research/designs/new_speaker_readiness.md`.

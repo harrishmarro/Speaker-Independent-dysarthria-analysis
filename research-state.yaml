@@ -17,7 +17,7 @@ hypotheses:
     evidence: research/research_status.md
   - id: H3
     statement: MFCC summaries plus class-balanced ridge improve validation and training-speaker CV over the retained spectral baseline.
-    status: active
+    status: refuted_on_current_split
     protocol: research/designs/mfcc_baseline.md
 
 experiments:
@@ -27,11 +27,11 @@ experiments:
   retained_baseline_balanced_accuracy: 0.5
   retained_baseline_f1: 0.0
   speaker_split: {train: 11, validation: 2, held_out_test: 2}
-  latest_recorded: EXP-20261030T065554Z-208dd7
-  latest_candidate: mfcc_ridge_0_1
+  latest_recorded: EXP-20261030T195736Z-327553
+  latest_candidate: mfcc_ridge_10
   latest_validation_balanced_accuracy: 0.5
-  latest_training_speaker_cv_balanced_accuracy: 0.466667
-  next_candidate_index: 7
+  latest_training_speaker_cv_balanced_accuracy: 0.633333
+  next_candidate_index: 9
   result_source: experiments/registry.tsv
   controller_source: experiments/search_state.json
 
@@ -40,8 +40,9 @@ outer_loop:
   last_direction: broaden
   last_reflection: >-
     The spectral and ridge families did not improve the two-speaker validation result.
-    Continue the preregistered MFCC classical comparison, then investigate speaker and
-    microphone shift before interpreting a WavLM or MoE result.
+    All preregistered MFCC variants tied the two-speaker validation baseline and
+    regressed in training-speaker cross-validation. Audit speaker, session, and
+    microphone coverage before planning another model family.
 
 workspace:
   findings: findings.md
