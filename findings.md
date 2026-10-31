@@ -16,10 +16,11 @@ shift is a hypothesis for later analysis.
 
 ## New MFCC evidence
 
-The first MFCC candidate, alpha 0.1 (`EXP-20261030T065554Z-208dd7`), tied the
-validation baseline at 0.500 and scored 0.467 in training-speaker CV versus 0.817 for
-the baseline. It was rejected. Alpha 1.0 and 10.0 remain in the reviewed candidate
-catalog. The MFCC protocol is in `research/designs/mfcc_baseline.md`.
+All three MFCC candidates, with ridge penalties 0.1, 1.0, and 10.0, tied the
+validation baseline at 0.500 and scored 0.467, 0.467, and 0.633 respectively in
+training-speaker CV, versus 0.817 for the retained spectral baseline. All were
+rejected. The finite candidate catalog is exhausted. The MFCC protocol is in
+`research/designs/mfcc_baseline.md`.
 
 ## Lessons and constraints
 
@@ -32,8 +33,8 @@ catalog. The MFCC protocol is in `research/designs/mfcc_baseline.md`.
 
 ## Open questions
 
-- Do the remaining MFCC penalties produce a validation improvement that also holds in
-  training-speaker CV?
+- Does microphone or session coverage explain part of the gap between training-speaker
+  cross-validation and the two-speaker validation result?
 - Are errors associated with speaker identity, microphone, session, or recording
   quality? Private-runner analysis is needed to test this without publishing identities.
 - How should the protocol obtain stronger speaker-level validation evidence before a
