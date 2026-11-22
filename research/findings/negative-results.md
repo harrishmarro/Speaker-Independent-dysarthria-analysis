@@ -41,6 +41,10 @@ This is a negative result for these features on TORGO's development speakers. It
 evidence that rhythm carries no information about dysarthria. As planned, the next step
 is frozen transfer to an independent corpus (P3) rather than more tuning on TORGO.
 
-**Gate caveat:** the controls' cross-microphone BA understates them, because their ranking
-transfers better than their threshold. Before promoting any future candidate, consider
-also requiring an AUC margin over the controls.
+**Gate tightened after this run:** the controls' cross-microphone BA understates them,
+because their ranking transfers better than their threshold. `autoresearch/decide.py` now
+also requires, for every variant in both directions, AUC of at least 0.75 and at least
+0.10 above the stronger control. Control AUC is scored direction-free, as max(AUC, 1 - AUC).
+Under the tighter rule, rhythm fails sooner: `vad10` head→array AUC is 0.690. The spectral
+baseline would fail as well, since its best swap AUC (0.833) is below the silence
+control's 0.857.

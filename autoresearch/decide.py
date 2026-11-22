@@ -51,6 +51,8 @@ DIRECTIONS = ("h2a", "a2h")
 CONTROL_NAMES = ("channel", "silence")
 MIN_SWAP_BA = 0.70
 MIN_MARGIN_OVER_CONTROLS = 0.15
+MIN_SWAP_AUC = 0.75
+MIN_AUC_MARGIN = 0.10  # ~4 of 42 case-control orderings with 6 controls and 7 cases
 # Every listed variant must pass; a candidate cannot choose its favourable VAD setting.
 REQUIRED_SWAP_VARIANTS = {"rhythm": ("vad10", "vad15", "vad20")}
 REPORTED_SWAP_VARIANTS = {"rhythm": ("eq15",)}
@@ -68,24 +70,41 @@ def swap_gate(
     candidate: dict[str, dict[str, float]],
     controls: dict[str, dict[str, float]],
     baseline: dict[str, float],
+    *,
+    candidate_auc: dict[str, dict[str, float]],
+    control_auc: dict[str, dict[str, float]],
 ) -> tuple[bool, str]:
     """Promote only on cross-microphone evidence measured in one run.
 
-    ``candidate[variant][direction]`` and ``controls[name][direction]`` are balanced
-    accuracies from speaker-held-out mic swaps; ``baseline[direction]`` is the accepted
-    baseline's. Every required variant must reach ``MIN_SWAP_BA`` in both directions,
-    beat the stronger nuisance-only control in that direction by
-    ``MIN_MARGIN_OVER_CONTROLS``, and its worst case must exceed the baseline's worst case.
+    ``candidate``/``controls`` hold balanced accuracies and ``candidate_auc``/``control_auc``
+    hold AUCs, keyed ``[variant or control][direction]``, from speaker-held-out mic swaps;
+    ``baseline[direction]`` is the accepted baseline's balanced accuracy.
+
+    Every required variant, in both directions, must:
+    - reach ``MIN_SWAP_BA`` and beat the stronger control's BA by ``MIN_MARGIN_OVER_CONTROLS``;
+    - reach ``MIN_SWAP_AUC`` and beat the stronger control's AUC by ``MIN_AUC_MARGIN``.
+      Control AUC is direction-free, max(AUC, 1 - AUC): a nuisance cue whose ranking flips
+      between microphones still carries label information. BA alone understates controls
+      whose ranking transfers but whose threshold does not.
+    Finally the worst-case BA must exceed the baseline's worst case.
     """
-    for variant, scores in candidate.items():
+    for variant in candidate:
         for direction in DIRECTIONS:
-            score = scores[direction]
+            score = candidate[variant][direction]
             bar = max(controls[name][direction] for name in CONTROL_NAMES)
             if score < MIN_SWAP_BA:
                 return False, f"{variant} {direction} BA {score:.3f} < {MIN_SWAP_BA}"
             if score < bar + MIN_MARGIN_OVER_CONTROLS:
                 return False, (f"{variant} {direction} BA {score:.3f} within "
                                f"{MIN_MARGIN_OVER_CONTROLS} of control {bar:.3f}")
+            auc = candidate_auc[variant][direction]
+            auc_bar = max(max(control_auc[name][direction], 1 - control_auc[name][direction])
+                          for name in CONTROL_NAMES)
+            if auc < MIN_SWAP_AUC:
+                return False, f"{variant} {direction} AUC {auc:.3f} < {MIN_SWAP_AUC}"
+            if auc < auc_bar + MIN_AUC_MARGIN:
+                return False, (f"{variant} {direction} AUC {auc:.3f} within "
+                               f"{MIN_AUC_MARGIN} of control AUC {auc_bar:.3f}")
     worst = min(scores[d] for scores in candidate.values() for d in DIRECTIONS)
     baseline_worst = min(baseline[d] for d in DIRECTIONS)
     if worst <= baseline_worst:
@@ -100,12 +119,18 @@ def gate_from_record(record: dict[str, str], feature_set: str) -> tuple[bool, st
             raise ValueError(f"result lacks {key}; rerun with a mic-provenance manifest")
         return float(value)
 
+    variants = required_variants(feature_set)
+
+    def table(prefix: str, names: tuple[str, ...], metric: str) -> dict[str, dict[str, float]]:
+        return {name: {d: score(f"{prefix}_{name}_{d}_{metric}") for d in DIRECTIONS}
+                for name in names}
+
     return swap_gate(
-        {variant: {d: score(f"swap_{variant}_{d}_ba") for d in DIRECTIONS}
-         for variant in required_variants(feature_set)},
-        {name: {d: score(f"control_{name}_{d}_ba") for d in DIRECTIONS}
-         for name in CONTROL_NAMES},
+        table("swap", variants, "ba"),
+        table("control", CONTROL_NAMES, "ba"),
         {d: score(f"swap_baseline_{d}_ba") for d in DIRECTIONS},
+        candidate_auc=table("swap", variants, "auc"),
+        control_auc=table("control", CONTROL_NAMES, "auc"),
     )
 
 

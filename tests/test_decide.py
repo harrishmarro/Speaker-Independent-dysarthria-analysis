@@ -5,19 +5,39 @@ from autoresearch import decide as controller
 from autoresearch.decide import gate_from_record, swap_gate
 
 CONTROLS = {"channel": {"h2a": 0.40, "a2h": 0.55}, "silence": {"h2a": 0.35, "a2h": 0.45}}
+CONTROL_AUC = {"channel": {"h2a": 0.60, "a2h": 0.62}, "silence": {"h2a": 0.55, "a2h": 0.40}}
 BASELINE = {"h2a": 0.50, "a2h": 0.60}
+PASSING = {"vad10": {"h2a": 0.80, "a2h": 0.75}, "vad15": {"h2a": 0.78, "a2h": 0.72}}
+PASSING_AUC = {"vad10": {"h2a": 0.85, "a2h": 0.80}, "vad15": {"h2a": 0.82, "a2h": 0.79}}
+
+
+def gate(ba=PASSING, auc=PASSING_AUC, controls=CONTROLS, control_auc=CONTROL_AUC,
+         baseline=BASELINE):
+    return swap_gate(ba, controls, baseline, candidate_auc=auc, control_auc=control_auc)
 
 
 def test_swap_gate_requires_every_variant_both_directions_and_control_margin():
-    passing = {"vad10": {"h2a": 0.80, "a2h": 0.75}, "vad15": {"h2a": 0.78, "a2h": 0.72}}
-    assert swap_gate(passing, CONTROLS, BASELINE)[0]
-    one_weak_variant = {**passing, "vad20": {"h2a": 0.80, "a2h": 0.65}}
-    ok, reason = swap_gate(one_weak_variant, CONTROLS, BASELINE)
+    assert gate()[0]
+    ok, reason = gate(ba={**PASSING, "vad20": {"h2a": 0.80, "a2h": 0.65}},
+                      auc={**PASSING_AUC, "vad20": {"h2a": 0.9, "a2h": 0.9}})
     assert not ok and "vad20 a2h" in reason
-    near_control = {"main": {"h2a": 0.80, "a2h": 0.70}}
-    assert not swap_gate(near_control, {**CONTROLS, "channel": {"h2a": 0.4, "a2h": 0.6}},
-                         BASELINE)[0]
-    assert not swap_gate(passing, CONTROLS, {"h2a": 0.9, "a2h": 0.9})[0]
+    assert not gate(controls={**CONTROLS, "channel": {"h2a": 0.4, "a2h": 0.65}})[0]
+    assert not gate(baseline={"h2a": 0.9, "a2h": 0.9})[0]
+
+
+def test_swap_gate_requires_auc_margin_over_controls():
+    # Mirrors EXP-20261122T080254Z-0c4e3d: the silence control ranks speakers at AUC
+    # 0.857 even though its threshold does not transfer (BA 0.5).
+    ok, reason = gate(control_auc={**CONTROL_AUC, "silence": {"h2a": 0.857, "a2h": 0.857}})
+    assert not ok and "control AUC 0.857" in reason
+    ok, reason = gate(auc={**PASSING_AUC, "vad15": {"h2a": 0.82, "a2h": 0.70}})
+    assert not ok and "AUC 0.700 < 0.75" in reason
+
+
+def test_inverted_control_ranking_still_counts_against_the_candidate():
+    # A control at AUC 0.15 ranks speakers as well as one at 0.85, just reversed.
+    ok, reason = gate(control_auc={**CONTROL_AUC, "channel": {"h2a": 0.15, "a2h": 0.6}})
+    assert not ok and "control AUC 0.850" in reason
 
 
 def test_gate_refuses_results_without_mic_swap_fields():
