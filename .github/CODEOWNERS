@@ -6,5 +6,6 @@
 /verify_runner.py @harrishmarro
 /evaluate.py @harrishmarro
 /controls.py @harrishmarro
+/transfer.py @harrishmarro
 /prepare.py @harrishmarro
 /autoresearch/ @harrishmarro
