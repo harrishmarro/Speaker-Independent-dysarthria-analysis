@@ -8,6 +8,7 @@ locked_paths:
   - prepare.py
   - evaluate.py
   - controls.py
+  - transfer.py
   - security.py
   - locked/
   - data/manifests/
