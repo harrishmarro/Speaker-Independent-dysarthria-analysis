@@ -74,6 +74,9 @@ jobs:
           fi
           echo "DYSARTHRIA_MANIFEST=$DYSARTHRIA_MANIFEST" >> "$GITHUB_ENV"
           uv run python verify_runner.py --manifest "$DYSARTHRIA_MANIFEST" --allow-cpu
+      - name: Audit speaker and recording-condition coverage
+        if: steps.schedule.outputs.due == 'true'
+        run: uv run python scripts/audit_torgo_conditions.py --manifest "$DYSARTHRIA_MANIFEST"
       - if: steps.schedule.outputs.due == 'true'
         run: uv run python security.py train.py
       - if: steps.schedule.outputs.due == 'true'
