@@ -2,14 +2,28 @@ import json
 import sys
 
 from autoresearch import decide as controller
-from autoresearch.decide import decide
+from autoresearch.decide import gate_from_record, swap_gate
+
+CONTROLS = {"channel": {"h2a": 0.40, "a2h": 0.55}, "silence": {"h2a": 0.35, "a2h": 0.45}}
+BASELINE = {"h2a": 0.50, "a2h": 0.60}
 
 
-def test_only_strict_same_run_cv_gain_without_f1_regression_is_promoted():
-    assert not decide(0.5, 0.2, 0.5, 0.0)
-    assert not decide(0.75, 0.1, 0.5, 0.2)
-    assert decide(0.75, 0.2, 0.5, 0.2)
-    assert decide(0.75, 0.3, 0.5, 0.2)
+def test_swap_gate_requires_every_variant_both_directions_and_control_margin():
+    passing = {"vad10": {"h2a": 0.80, "a2h": 0.75}, "vad15": {"h2a": 0.78, "a2h": 0.72}}
+    assert swap_gate(passing, CONTROLS, BASELINE)[0]
+    one_weak_variant = {**passing, "vad20": {"h2a": 0.80, "a2h": 0.65}}
+    ok, reason = swap_gate(one_weak_variant, CONTROLS, BASELINE)
+    assert not ok and "vad20 a2h" in reason
+    near_control = {"main": {"h2a": 0.80, "a2h": 0.70}}
+    assert not swap_gate(near_control, {**CONTROLS, "channel": {"h2a": 0.4, "a2h": 0.6}},
+                         BASELINE)[0]
+    assert not swap_gate(passing, CONTROLS, {"h2a": 0.9, "a2h": 0.9})[0]
+
+
+def test_gate_refuses_results_without_mic_swap_fields():
+    import pytest
+    with pytest.raises(ValueError, match="mic-provenance"):
+        gate_from_record({"swap_main_h2a_ba": ""}, "spectral")
 
 
 def test_new_approach_waits_for_explicit_approval(tmp_path, monkeypatch, capsys):

@@ -22,11 +22,14 @@ SPLITS = {
 }
 
 
-def expected_labels(manifest: str | Path, split: str) -> dict[str, int]:
+def expected_labels(
+    manifest: str | Path, split: str, *, both_mics: bool = False
+) -> dict[str, int]:
     """Return one locked binary label per speaker in the requested split."""
     if split not in SPLITS:
         raise ValueError(f"unknown split {split!r}")
     labels: dict[str, int] = {}
+    microphones: dict[str, set[str]] = {}
     with Path(manifest).open(newline="", encoding="utf-8") as handle:
         for row in csv.DictReader(handle):
             if row["split"] not in SPLITS[split]:
@@ -34,6 +37,11 @@ def expected_labels(manifest: str | Path, split: str) -> dict[str, int]:
             label = int(row["label"] == "dysarthria")
             if labels.setdefault(row["speaker_id"], label) != label:
                 raise ValueError(f"conflicting labels for speaker {row['speaker_id']}")
+            microphones.setdefault(row["speaker_id"], set()).add(row.get("mic") or "")
+    if both_mics:
+        # Mic-swap scoring covers exactly the speakers recorded on both microphones.
+        labels = {speaker: label for speaker, label in labels.items()
+                  if {"headMic", "arrayMic"} <= microphones[speaker]}
     if not labels:
         raise ValueError(f"manifest has no speakers in split {split!r}")
     return labels
@@ -70,12 +78,16 @@ def main() -> None:
     parser.add_argument("--predictions", required=True)
     parser.add_argument("--manifest", required=True, help="locked prepared manifest")
     parser.add_argument("--split", required=True, choices=sorted(SPLITS))
+    parser.add_argument("--both-mics", action="store_true",
+                        help="expect only speakers recorded on both microphones (mic swap)")
     parser.add_argument("--output", required=True)
     arguments = parser.parse_args()
 
     with Path(arguments.predictions).open(encoding="utf-8") as handle:
         records = [json.loads(line) for line in handle if line.strip()]
-    metrics = evaluate(records, expected_labels(arguments.manifest, arguments.split))
+    metrics = evaluate(records, expected_labels(
+        arguments.manifest, arguments.split, both_mics=arguments.both_mics
+    ))
     output = Path(arguments.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(metrics, indent=2, sort_keys=True) + "\n", encoding="utf-8")

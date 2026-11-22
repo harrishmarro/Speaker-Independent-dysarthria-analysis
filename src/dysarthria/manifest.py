@@ -9,6 +9,7 @@ from pathlib import Path
 
 REQUIRED_COLUMNS = {"audio_path", "speaker_id", "label"}
 ALLOWED_LABELS = {"control", "dysarthria"}
+ALLOWED_MICS = {"headMic", "arrayMic"}
 
 
 def read_manifest(path: str | Path) -> list[dict[str, str]]:
@@ -34,6 +35,17 @@ def read_manifest(path: str | Path) -> list[dict[str, str]]:
                 f"got {row['label']!r}"
             )
     _speaker_labels(rows)
+    if "mic" in columns:
+        for index, row in enumerate(rows, start=2):
+            if row["mic"] not in ALLOWED_MICS:
+                raise ValueError(f"row {index}: mic must be one of {sorted(ALLOWED_MICS)}")
+    if "take_id" in columns:
+        take_speakers: dict[str, set[str]] = defaultdict(set)
+        for row in rows:
+            take_speakers[row["take_id"]].add(row["speaker_id"])
+        shared = sorted(take for take, speakers in take_speakers.items() if len(speakers) > 1)
+        if shared:
+            raise ValueError(f"takes shared across speakers: {', '.join(shared[:5])}")
     return rows
 
 
@@ -92,7 +104,8 @@ def assign_speaker_splits(
 
 def write_manifest(rows: list[dict[str, str]], path: str | Path) -> None:
     """Write rows using the union of their fields while preserving common field order."""
-    preferred = ["audio_path", "speaker_id", "label", "severity", "transcript", "split"]
+    preferred = ["audio_path", "speaker_id", "label", "severity", "transcript", "mic",
+                 "session", "take_id", "split"]
     available = {key for row in rows for key in row}
     columns = [column for column in preferred if column in available]
     columns.extend(sorted(available - set(columns)))
