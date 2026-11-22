@@ -7,6 +7,7 @@ agent_writable_paths:
 locked_paths:
   - prepare.py
   - evaluate.py
+  - controls.py
   - security.py
   - locked/
   - data/manifests/

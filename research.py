@@ -23,7 +23,8 @@ ACTIVE_CANDIDATE = ROOT / "configs" / "research" / "active.json"
 ACCEPTED_BASELINE = ROOT / "configs" / "research" / "baseline.json"
 CV_CODE = ROOT / "src" / "dysarthria" / "acoustic_cv.py"
 MFCC_CODE = ROOT / "src" / "dysarthria" / "mfcc_features.py"
-ALLOWED_PROGRAMS = {"security.py", "prepare.py", "train.py", "evaluate.py"}
+RHYTHM_CODE = ROOT / "src" / "dysarthria" / "rhythm_features.py"
+ALLOWED_PROGRAMS = {"security.py", "prepare.py", "train.py", "evaluate.py", "controls.py"}
 
 
 def digest(path: Path) -> str:
@@ -70,6 +71,50 @@ def write_candidate_manifest(prepared: Path, destination: Path) -> int:
         writer.writeheader()
         writer.writerows(visible)
     return len(rows) - len(visible)
+
+
+def has_mic_provenance(manifest: Path) -> bool:
+    with manifest.open(newline="", encoding="utf-8") as handle:
+        return "mic" in (csv.DictReader(handle).fieldnames or [])
+
+
+def score_mic_swaps(prepared: Path, candidate_manifest: Path, output: Path) -> dict[str, str]:
+    """Run the locked controls and score every mic-swap prediction file.
+
+    Returns registry fields; empty when the manifest has no mic provenance, in which case
+    ``autoresearch/decide.py`` refuses to assess the result.
+    """
+    from autoresearch.decide import CONTROL_NAMES, reported_variants, required_variants
+
+    if not has_mic_provenance(prepared):
+        return {}
+    run([sys.executable, "controls.py", "--manifest", str(candidate_manifest),
+         "--output-dir", str(output)], timeout=1800)
+    feature_set = str(json.loads(ACTIVE_CANDIDATE.read_text()).get("feature_set", "spectral"))
+    variants = [*required_variants(feature_set), *reported_variants(feature_set)]
+    files = {f"swap_{variant}_{d}": f"swap_{variant}_{d}.jsonl"
+             for variant in [*variants, "baseline"] for d in ("h2a", "a2h")}
+    files.update({f"control_{name}_{d}": f"control_{name}_{d}.jsonl"
+                  for name in CONTROL_NAMES for d in ("h2a", "a2h")})
+    record = {"swap_variants": ",".join(required_variants(feature_set))}
+    for field, name in files.items():
+        if not (output / name).exists():
+            raise FileNotFoundError(f"candidate did not write required {name}")
+        result = output / f"{field}_metrics.json"
+        run([sys.executable, "evaluate.py", "--predictions", str(output / name),
+             "--manifest", str(prepared), "--split", "development", "--both-mics",
+             "--output", str(result)], timeout=60)
+        values = json.loads(result.read_text(encoding="utf-8"))
+        record[f"{field}_ba"] = f"{values['balanced_accuracy']:.6f}"
+        record[f"{field}_auc"] = f"{values['auc']:.6f}" if "auc" in values else ""
+    for name in CONTROL_NAMES:
+        result = output / f"control_{name}_cv_metrics.json"
+        run([sys.executable, "evaluate.py", "--predictions",
+             str(output / f"control_{name}_cv.jsonl"), "--manifest", str(prepared),
+             "--split", "development", "--output", str(result)], timeout=60)
+        values = json.loads(result.read_text(encoding="utf-8"))
+        record[f"control_{name}_cv_auc"] = f"{values.get('auc', float('nan')):.6f}"
+    return record
 
 
 def existing_signatures() -> set[str]:
@@ -121,7 +166,7 @@ def main() -> None:
     manifest = ROOT / arguments.manifest
     signature_input = ":".join(
         [arguments.mode, str(arguments.seed), digest(ROOT / "train.py"), digest(CV_CODE),
-         digest(MFCC_CODE),
+         digest(MFCC_CODE), digest(RHYTHM_CODE), digest(ROOT / "controls.py"),
          digest(ACTIVE_CANDIDATE), digest(ACCEPTED_BASELINE), digest(manifest)]
     )
     signature = hashlib.sha256(signature_input.encode()).hexdigest()[:16]
@@ -142,6 +187,7 @@ def main() -> None:
 
     run([sys.executable, "security.py", "train.py"], timeout=60)
     run([sys.executable, "security.py", "src/dysarthria/mfcc_features.py"], timeout=60)
+    run([sys.executable, "security.py", "src/dysarthria/rhythm_features.py"], timeout=60)
     run(
         [
             sys.executable,
@@ -172,6 +218,7 @@ def main() -> None:
              "--manifest", str(prepared), "--split", split, "--output", str(result_file)],
             timeout=60,
         )
+    swap_record = score_mic_swaps(prepared, candidate_manifest, output)
     metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
     cv_metrics = json.loads(cv_metrics_path.read_text(encoding="utf-8"))
     baseline_cv_metrics = json.loads(baseline_cv_metrics_path.read_text(encoding="utf-8"))
@@ -208,6 +255,7 @@ def main() -> None:
             "baseline_cv_auc": (
                 f"{baseline_cv_metrics['auc']:.6f}" if "auc" in baseline_cv_metrics else ""
             ),
+            **swap_record,
         }
     )
     print(f"recorded {experiment_id} as {status}")

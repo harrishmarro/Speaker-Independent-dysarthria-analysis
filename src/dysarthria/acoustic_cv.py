@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
+FEATURE_SETS = ("spectral", "mfcc", "rhythm", "channel", "silence")
+MICROPHONES = ("headMic", "arrayMic")
+
 
 def predict_speakers(
     training: dict[str, np.ndarray],
@@ -22,7 +25,7 @@ def predict_speakers(
     if weight not in (0.5, 1.0, 2.0):
         raise ValueError("unsupported spectral weight")
     feature_set = settings.get("feature_set", "spectral")
-    if feature_set not in ("spectral", "mfcc"):
+    if feature_set not in FEATURE_SETS:
         raise ValueError("unsupported feature set")
     classifier = settings.get("classifier", "centroid")
     if classifier not in ("centroid", "speaker_knn", "ridge"):
@@ -100,5 +103,33 @@ def leave_one_speaker_out(
         training = {name: vector for name, vector in features.items() if name != speaker}
         results.extend(predict_speakers(
             training, labels, {speaker: features[speaker]}, settings,
+        ))
+    return results
+
+
+def mic_swap(
+    features: dict[tuple[str, str], np.ndarray],
+    labels: dict[str, str],
+    settings: dict[str, object],
+    source: str,
+    target: str,
+) -> list[dict[str, object]]:
+    """Score each held-out speaker's ``target``-mic features with a model fitted on the
+    other speakers' ``source``-mic features.
+
+    Scaling and fitting use only the source microphone, so a cue that is specific to how
+    one microphone or session sounds cannot carry over. Only speakers recorded on both
+    microphones are scored.
+    """
+    if {source, target} != set(MICROPHONES):
+        raise ValueError("mic swap needs one source and one different target microphone")
+    speakers = sorted({speaker for speaker, mic in features if mic == source}
+                      & {speaker for speaker, mic in features if mic == target})
+    results = []
+    for speaker in speakers:
+        training = {other: features[(other, source)] for other, mic in features
+                    if mic == source and other != speaker}
+        results.extend(predict_speakers(
+            training, labels, {speaker: features[(speaker, target)]}, settings,
         ))
     return results
