@@ -43,13 +43,19 @@ def approach(candidate: dict[str, object]) -> str:
     return str(candidate.get("classifier", "centroid"))
 
 
+CV_POOL = "train+validation"
+
+
 def decide(
-    score: float, f1: float, baseline_score: float, baseline_f1: float,
     cv_score: float, cv_f1: float, baseline_cv_score: float, baseline_cv_f1: float,
 ) -> bool:
-    """Require gains on validation and training-speaker CV without F1 regression."""
-    return (score > baseline_score and f1 >= baseline_f1
-            and cv_score > baseline_cv_score and cv_f1 >= baseline_cv_f1)
+    """Require a strict same-run CV gain over the baseline without F1 regression.
+
+    Both scores come from leave-one-speaker-out over the identical development pool in
+    one run, so the comparison never mixes manifests, seeds, or code versions. The
+    two-speaker validation split is reported but is too coarse to select candidates.
+    """
+    return cv_score > baseline_cv_score and cv_f1 >= baseline_cv_f1
 
 
 def write_json(path: Path, value: dict[str, object]) -> None:
@@ -93,9 +99,9 @@ def main() -> None:
     if not matches:
         raise ValueError(f"no completed result for {name}")
     latest = matches[-1]
+    if latest.get("cv_pool") != CV_POOL:
+        raise ValueError(f"{name} result predates same-run {CV_POOL} CV; rerun it")
     improved = decide(
-        float(latest["balanced_accuracy"]), float(latest["f1"]),
-        baseline["balanced_accuracy"], baseline["f1"],
         float(latest["cv_balanced_accuracy"]), float(latest["cv_f1"]),
         float(latest["baseline_cv_balanced_accuracy"]),
         float(latest["baseline_cv_f1"]),
@@ -119,7 +125,8 @@ def main() -> None:
                     latest["balanced_accuracy"],
                     latest["f1"],
                     "proposed_for_review",
-                    "Candidate exceeded the accepted validation baseline; requires PR review.",
+                    "Candidate beat the baseline on same-run development CV; "
+                    "requires PR review.",
                 )) + "\n"
             )
     else:

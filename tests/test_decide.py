@@ -5,11 +5,11 @@ from autoresearch import decide as controller
 from autoresearch.decide import decide
 
 
-def test_only_strict_primary_gain_without_f1_regression_is_promoted():
-    assert not decide(0.5, 0.2, 0.5, 0.0, 0.75, 0.2, 0.5, 0.0)
-    assert not decide(0.75, 0.1, 0.5, 0.2, 0.75, 0.2, 0.5, 0.0)
-    assert not decide(0.75, 0.2, 0.5, 0.2, 0.5, 0.2, 0.5, 0.0)
-    assert decide(0.75, 0.2, 0.5, 0.2, 0.75, 0.2, 0.5, 0.0)
+def test_only_strict_same_run_cv_gain_without_f1_regression_is_promoted():
+    assert not decide(0.5, 0.2, 0.5, 0.0)
+    assert not decide(0.75, 0.1, 0.5, 0.2)
+    assert decide(0.75, 0.2, 0.5, 0.2)
+    assert decide(0.75, 0.3, 0.5, 0.2)
 
 
 def test_new_approach_waits_for_explicit_approval(tmp_path, monkeypatch, capsys):

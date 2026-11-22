@@ -36,6 +36,16 @@ def binary_classification_metrics(
     }
 
 
+def roc_auc(targets: list[int], scores: list[float]) -> float:
+    """Rank-based ROC AUC (Mann-Whitney U); ties count as half a correct ordering."""
+    if len(targets) != len(scores) or set(targets) != {0, 1}:
+        raise ValueError("AUC needs equal-length inputs containing both classes")
+    positives = [s for t, s in zip(targets, scores, strict=True) if t == 1]
+    negatives = [s for t, s in zip(targets, scores, strict=True) if t == 0]
+    wins = sum((p > n) + 0.5 * (p == n) for p in positives for n in negatives)
+    return wins / (len(positives) * len(negatives))
+
+
 def word_error_rate(reference: str, hypothesis: str) -> float:
     """Compute word-level Levenshtein distance divided by reference word count."""
     reference_words = reference.lower().split()
