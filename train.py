@@ -84,56 +84,51 @@ def main() -> None:
         )
         return candidate_vector, baseline_vector
 
-    # A candidate must never inspect held-out test audio during iteration.
-    active_rows = [row for row in rows if row["split"] in {"train", "validation"}]
-    extracted = {row["audio_path"]: extract(row["audio_path"]) for row in active_rows}
-    vectors = {path: pair[0] for path, pair in extracted.items()}
-    baseline_vectors = {path: pair[1] for path, pair in extracted.items()}
-    by_speaker: dict[str, list[np.ndarray]] = defaultdict(list)
-    baseline_by_speaker: dict[str, list[np.ndarray]] = defaultdict(list)
-    speaker_labels: dict[str, str] = {}
+    # A candidate must never inspect held-out test audio during iteration. The research
+    # controller already strips test rows; refuse a manifest that still contains them.
+    if any(row["split"] not in {"train", "validation"} for row in rows):
+        raise ValueError("candidate manifest must contain only train and validation rows")
+    extracted = {row["audio_path"]: extract(row["audio_path"]) for row in rows}
+    labels: dict[str, str] = {}
+    splits: dict[str, str] = {}
+    candidate_recordings: dict[str, list[np.ndarray]] = defaultdict(list)
+    baseline_recordings: dict[str, list[np.ndarray]] = defaultdict(list)
     for row in rows:
-        if row["split"] == "train":
-            speaker = row["speaker_id"]
-            if speaker in speaker_labels and speaker_labels[speaker] != row["label"]:
-                raise ValueError(f"conflicting labels for training speaker {speaker}")
-            speaker_labels[speaker] = row["label"]
-            by_speaker[speaker].append(vectors[row["audio_path"]])
-            baseline_by_speaker[speaker].append(baseline_vectors[row["audio_path"]])
-    training_features = {
-        speaker: aggregate(recordings, axis=0) for speaker, recordings in by_speaker.items()
+        speaker = row["speaker_id"]
+        if labels.setdefault(speaker, row["label"]) != row["label"]:
+            raise ValueError(f"conflicting labels for speaker {speaker}")
+        if splits.setdefault(speaker, row["split"]) != row["split"]:
+            raise ValueError(f"speaker {speaker} appears in more than one split")
+        candidate_recordings[speaker].append(extracted[row["audio_path"]][0])
+        baseline_recordings[speaker].append(extracted[row["audio_path"]][1])
+    baseline_aggregate = np.mean if baseline["aggregation"] == "mean" else np.median
+    candidate_features = {
+        speaker: aggregate(items, axis=0) for speaker, items in candidate_recordings.items()
     }
-    speaker_rows: dict[str, list[dict[str, str]]] = defaultdict(list)
-    for row in rows:
-        if row["split"] == "validation":
-            speaker_rows[row["speaker_id"]].append(row)
-    validation_features = {
-        speaker: aggregate([vectors[row["audio_path"]] for row in recordings], axis=0)
-        for speaker, recordings in speaker_rows.items()
+    baseline_features = {
+        speaker: baseline_aggregate(items, axis=0)
+        for speaker, items in baseline_recordings.items()
     }
-    all_labels = {**speaker_labels, **{
-        speaker: recordings[0]["label"] for speaker, recordings in speaker_rows.items()
-    }}
-    predictions = predict_speakers(
-        training_features, all_labels, validation_features, settings
-    )
-    write_predictions(predictions, arguments.output)
+
+    def split_of(features: dict[str, np.ndarray], split: str) -> dict[str, np.ndarray]:
+        return {speaker: vector for speaker, vector in features.items()
+                if splits[speaker] == split}
+
+    # Held-out validation report: fit on training speakers, predict validation speakers.
     output = Path(arguments.output)
+    predictions = predict_speakers(
+        split_of(candidate_features, "train"), labels,
+        split_of(candidate_features, "validation"), settings,
+    )
+    write_predictions(predictions, output)
+    # Selection evidence: leave-one-speaker-out over every development speaker, scored
+    # identically for the candidate and the accepted baseline in this same run.
     write_predictions(
-        leave_one_speaker_out(training_features, speaker_labels, settings),
+        leave_one_speaker_out(candidate_features, labels, settings),
         output.with_name("cv_predictions.jsonl"),
     )
-    if (baseline["aggregation"] == settings["aggregation"]
-            and baseline_feature_set == feature_set):
-        baseline_features = training_features
-    else:
-        baseline_aggregate = np.mean if baseline["aggregation"] == "mean" else np.median
-        baseline_features = {
-            speaker: baseline_aggregate(recordings, axis=0)
-            for speaker, recordings in baseline_by_speaker.items()
-        }
     write_predictions(
-        leave_one_speaker_out(baseline_features, speaker_labels, baseline),
+        leave_one_speaker_out(baseline_features, labels, baseline),
         output.with_name("baseline_cv_predictions.jsonl"),
     )
     print(f"audio baseline wrote {len(predictions)} speaker predictions")

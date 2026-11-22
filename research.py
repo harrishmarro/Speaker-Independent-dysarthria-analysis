@@ -58,6 +58,20 @@ def run(command: list[str], *, timeout: int) -> None:
     )
 
 
+def write_candidate_manifest(prepared: Path, destination: Path) -> int:
+    """Copy the prepared manifest without held-out test rows; return rows withheld."""
+    with prepared.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        columns = list(reader.fieldnames or [])
+        rows = list(reader)
+    visible = [row for row in rows if row["split"] in {"train", "validation"}]
+    with destination.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(visible)
+    return len(rows) - len(visible)
+
+
 def existing_signatures() -> set[str]:
     if not REGISTRY.exists():
         return set()
@@ -119,6 +133,7 @@ def main() -> None:
     experiment_id = f"EXP-{timestamp}-{signature[:6]}"
     output = ROOT / "artifacts" / experiment_id
     prepared = output / "prepared_manifest.csv"
+    candidate_manifest = output / "candidate_manifest.csv"
     predictions = output / "predictions.jsonl"
     metrics_path = output / "metrics.json"
     cv_metrics_path = output / "cv_metrics.json"
@@ -140,28 +155,21 @@ def main() -> None:
         ],
         timeout=60,
     )
+    # The candidate never receives held-out test rows; the locked manifest stays here.
+    write_candidate_manifest(prepared, candidate_manifest)
     run(
-        [sys.executable, "train.py", "--manifest", str(prepared), "--output", str(predictions)],
+        [sys.executable, "train.py", "--manifest", str(candidate_manifest),
+         "--output", str(predictions)],
         timeout=1800,
     )
-    run(
-        [
-            sys.executable,
-            "evaluate.py",
-            "--predictions",
-            str(predictions),
-            "--output",
-            str(metrics_path),
-        ],
-        timeout=60,
-    )
-    for prediction_file, result_file in (
-        ("cv_predictions.jsonl", cv_metrics_path),
-        ("baseline_cv_predictions.jsonl", baseline_cv_metrics_path),
+    for prediction_file, split, result_file in (
+        ("predictions.jsonl", "validation", metrics_path),
+        ("cv_predictions.jsonl", "development", cv_metrics_path),
+        ("baseline_cv_predictions.jsonl", "development", baseline_cv_metrics_path),
     ):
         run(
             [sys.executable, "evaluate.py", "--predictions", str(output / prediction_file),
-             "--output", str(result_file)],
+             "--manifest", str(prepared), "--split", split, "--output", str(result_file)],
             timeout=60,
         )
     metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
@@ -194,11 +202,12 @@ def main() -> None:
             "cv_f1": f"{cv_metrics['f1']:.6f}",
             "baseline_cv_balanced_accuracy": f"{baseline_cv_metrics['balanced_accuracy']:.6f}",
             "baseline_cv_f1": f"{baseline_cv_metrics['f1']:.6f}",
-            "cv_speakers": str(sum(
-                cv_metrics[key] for key in (
-                    "true_positive", "true_negative", "false_positive", "false_negative"
-                )
-            )),
+            "cv_speakers": str(cv_metrics["speakers"]),
+            "cv_pool": "train+validation",
+            "cv_auc": f"{cv_metrics['auc']:.6f}" if "auc" in cv_metrics else "",
+            "baseline_cv_auc": (
+                f"{baseline_cv_metrics['auc']:.6f}" if "auc" in baseline_cv_metrics else ""
+            ),
         }
     )
     print(f"recorded {experiment_id} as {status}")

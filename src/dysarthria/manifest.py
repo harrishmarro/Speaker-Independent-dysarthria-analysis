@@ -76,6 +76,9 @@ def assign_speaker_splits(
         validation_count = round(total * validation_ratio)
         if total >= 3 and validation_ratio > 0:
             validation_count = max(1, validation_count)
+        if total >= 3 and train_end + validation_count >= total:
+            # Never let rounding consume the held-out test split; take a training speaker.
+            train_end = total - validation_count - 1
         validation_end = min(total, train_end + validation_count)
         for speaker in speakers[:train_end]:
             split_by_speaker[speaker] = "train"

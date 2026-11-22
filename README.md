@@ -111,9 +111,14 @@ neighbor classifiers with 1, 3, and 5 neighbors and class-balanced ridge classif
 regularization strengths. None improved the accepted validation baseline. The current evidence is
 documented in [research status](research/research_status.md). The next approved study is the
 [MFCC classical baseline](research/designs/mfcc_baseline.md). The controller tries one variant from a
-finite, reviewed set in `autoresearch/decide.py`, compares validation balanced accuracy
-and leave-one-training-speaker-out cross-validation against the accepted baseline, and records
-each outcome. The cross-validation preprocessing is refitted within each speaker fold. Private
+finite, reviewed set in `autoresearch/decide.py` and promotes it only when its
+leave-one-speaker-out cross-validation over every train and validation speaker beats the
+accepted baseline scored on the same pool in the same run. The two-speaker validation split is
+still reported, but it is too coarse to select candidates. The candidate receives a manifest with
+the test rows removed, and `evaluate.py` takes labels and the expected speaker set from the locked
+prepared manifest rather than from the candidate's output. Results recorded before this change
+used training-only cross-validation and are not comparable. The cross-validation preprocessing is
+refitted within each speaker fold. Private
 speaker predictions remain under ignored `artifacts/`; the public registry contains only
 aggregate scores and a speaker count. Equal or worse variants restore the
 baseline configuration on `main`. A better variant opens a pull request for review before

@@ -60,5 +60,6 @@ def test_mfcc_candidate_preserves_spectral_baseline_cv(tmp_path, monkeypatch):
                                       "--output", str(output)])
     train.main()
     assert len(output.read_text().splitlines()) == 2
-    assert len((artifact_dir / "cv_predictions.jsonl").read_text().splitlines()) == 4
-    assert len((artifact_dir / "baseline_cv_predictions.jsonl").read_text().splitlines()) == 4
+    # Development-pool CV covers every train and validation speaker.
+    assert len((artifact_dir / "cv_predictions.jsonl").read_text().splitlines()) == 6
+    assert len((artifact_dir / "baseline_cv_predictions.jsonl").read_text().splitlines()) == 6
